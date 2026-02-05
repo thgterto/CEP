@@ -1,0 +1,260 @@
+const SPC = {
+    // Constants for Control Charts (from AIAG)
+    CONSTANTS: {
+        d2: { 2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534, 7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078 },
+        A2: { 2: 1.880, 3: 1.023, 4: 0.729, 5: 0.577, 6: 0.483, 7: 0.419, 8: 0.373, 9: 0.337, 10: 0.308 },
+        D3: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0.076, 8: 0.136, 9: 0.184, 10: 0.223 },
+        D4: { 2: 3.267, 3: 2.574, 4: 2.282, 5: 2.114, 6: 2.004, 7: 1.924, 8: 1.864, 9: 1.816, 10: 1.777 },
+        c4: { 2: 0.7979, 3: 0.8862, 4: 0.9213, 5: 0.9400, 6: 0.9515, 7: 0.9594, 8: 0.9650, 9: 0.9693, 10: 0.9727 },
+        B3: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0.030, 7: 0.118, 8: 0.185, 9: 0.239, 10: 0.284 },
+        B4: { 2: 3.267, 3: 2.568, 4: 2.266, 5: 2.089, 6: 1.970, 7: 1.882, 8: 1.815, 9: 1.761, 10: 1.716 },
+        A3: { 2: 2.659, 3: 1.954, 4: 1.628, 5: 1.427, 6: 1.287, 7: 1.182, 8: 1.099, 9: 1.032, 10: 0.975 }
+    },
+
+    // --- Helpers ---
+    mean: (arr) => arr.reduce((a, b) => a + b, 0) / arr.length,
+
+    stdDev: (arr, isSample = true) => {
+        const m = SPC.mean(arr);
+        const sumSq = arr.reduce((a, b) => a + Math.pow(b - m, 2), 0);
+        return Math.sqrt(sumSq / (arr.length - (isSample ? 1 : 0)));
+    },
+
+    // --- Chart Calculations ---
+
+    computeIMR: (data) => {
+        const ranges = [];
+        for (let i = 1; i < data.length; i++) {
+            ranges.push(Math.abs(data[i] - data[i-1]));
+        }
+
+        const meanX = SPC.mean(data);
+        const meanR = SPC.mean(ranges);
+
+        // Limits for I Chart
+        const uclX = meanX + 2.66 * meanR;
+        const lclX = meanX - 2.66 * meanR;
+
+        // Limits for MR Chart
+        const uclR = 3.27 * meanR;
+        const lclR = 0;
+
+        return {
+            charts: [
+                { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
+                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+            ],
+            stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
+        };
+    },
+
+    computeXbarR: (data, n = 5) => {
+        if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R." };
+
+        const subgroups = [];
+        for (let i = 0; i < data.length; i += n) {
+            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        }
+
+        const xbars = subgroups.map(g => SPC.mean(g));
+        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+
+        const xdbar = SPC.mean(xbars);
+        const rbar = SPC.mean(ranges);
+
+        const A2 = SPC.CONSTANTS.A2[n];
+        const D4 = SPC.CONSTANTS.D4[n];
+        const D3 = SPC.CONSTANTS.D3[n];
+        const d2 = SPC.CONSTANTS.d2[n];
+
+        return {
+            charts: [
+                { type: 'Xbar', data: xbars, cl: xdbar, ucl: xdbar + A2 * rbar, lcl: xdbar - A2 * rbar, name: 'Média (X̄)' },
+                { type: 'R', data: ranges, cl: rbar, ucl: D4 * rbar, lcl: D3 * rbar, name: 'Amplitude (R)' }
+            ],
+            stats: { mean: xdbar, sigma: rbar / d2 }
+        };
+    },
+
+    computeXbarS: (data, n = 5) => {
+         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-S nesta implementação." };
+
+        const subgroups = [];
+        for (let i = 0; i < data.length; i += n) {
+            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        }
+
+        const xbars = subgroups.map(g => SPC.mean(g));
+        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+
+        const xdbar = SPC.mean(xbars);
+        const sbar = SPC.mean(sigmas);
+
+        const A3 = SPC.CONSTANTS.A3[n];
+        const B4 = SPC.CONSTANTS.B4[n];
+        const B3 = SPC.CONSTANTS.B3[n];
+        const c4 = SPC.CONSTANTS.c4[n];
+
+        return {
+            charts: [
+                { type: 'Xbar', data: xbars, cl: xdbar, ucl: xdbar + A3 * sbar, lcl: xdbar - A3 * sbar, name: 'Média (X̄)' },
+                { type: 'S', data: sigmas, cl: sbar, ucl: B4 * sbar, lcl: B3 * sbar, name: 'Desvio Padrão (S)' }
+            ],
+            stats: { mean: xdbar, sigma: sbar / c4 }
+        };
+    },
+
+    computeCUSUM: (data, target = null, sigma = null) => {
+        const mean = target !== null ? target : SPC.mean(data);
+        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const k = 0.5 * std;
+        const h = 5 * std;
+
+        let cPos = [0];
+        let cNeg = [0];
+
+        for (let i = 0; i < data.length; i++) {
+            const xi = data[i];
+            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
+            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
+            cPos.push(cp);
+            cNeg.push(cn);
+        }
+        cPos.shift(); // remove initial 0
+        cNeg.shift();
+
+        return {
+            charts: [
+                { type: 'CUSUM', data: cPos, data2: cNeg, cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }
+            ],
+            stats: { mean, sigma: std }
+        };
+    },
+
+    computeEWMA: (data, lambda = 0.2) => {
+        const mean = SPC.mean(data);
+        const std = SPC.stdDev(data);
+
+        const z = [mean]; // Start with process mean
+        const ucl = [], lcl = [];
+        const L = 3;
+
+        for (let i = 0; i < data.length; i++) {
+            const zi = lambda * data[i] + (1 - lambda) * z[i];
+            z.push(zi);
+
+            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
+            ucl.push(mean + L * sigmaZ);
+            lcl.push(mean - L * sigmaZ);
+        }
+        z.shift(); // remove initial mean, alignment
+
+        return {
+            charts: [
+                { type: 'EWMA', data: z, cl: mean, uclArray: ucl, lclArray: lcl, name: 'EWMA' }
+            ],
+            stats: { mean, sigma: std }
+        };
+    },
+
+    computeRunChart: (data) => {
+        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        return {
+             charts: [
+                { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
+            ],
+            stats: { mean: median, sigma: 0 }
+        };
+    },
+
+    // --- Anomaly Detection ---
+
+    detectViolations: (chartData) => {
+        // chartData: { data: [], ucl, lcl, cl, sigma? }
+        const { data, ucl, lcl, cl } = chartData;
+        const violations = [];
+        const sigma = (ucl - cl) / 3;
+
+        // R1: 1 point beyond 3 sigma (UCL/LCL)
+        data.forEach((v, i) => {
+            if (v > ucl || v < lcl) {
+                violations.push({ index: i, value: v, rule: 'R1', text: 'Ponto fora dos limites (3σ)' });
+            }
+        });
+
+        // R2: 9 points on one side of CL
+        let count = 0;
+        let sign = 0;
+        for (let i = 0; i < data.length; i++) {
+            const s = Math.sign(data[i] - cl);
+            if (s === sign) {
+                count++;
+            } else {
+                sign = s;
+                count = 1;
+            }
+            if (count >= 9) {
+                violations.push({ index: i, value: data[i], rule: 'R2', text: '9+ pontos de um lado da média' });
+            }
+        }
+
+        // R3: 6 points increasing or decreasing
+        count = 0;
+        sign = 0; // 1 up, -1 down
+        for (let i = 1; i < data.length; i++) {
+             const diff = data[i] - data[i-1];
+             const s = Math.sign(diff);
+             if (s === sign && s !== 0) {
+                 count++;
+             } else {
+                 sign = s;
+                 count = 1;
+             }
+             if (count >= 5) { // 5 intervals = 6 points
+                 violations.push({ index: i, value: data[i], rule: 'R3', text: '6+ pontos em tendência' });
+             }
+        }
+
+        return violations;
+    },
+
+    // --- Capability ---
+
+    computeCapability: (data, usl, lsl, sigmaST) => {
+        const mu = SPC.mean(data);
+        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+
+        const result = {
+            mean: mu,
+            sigmaST,
+            sigmaLT
+        };
+
+        // Cp / Cpk (using Short Term Sigma)
+        if (sigmaST > 0) {
+             if (usl !== null && lsl !== null) {
+                 result.Cp = (usl - lsl) / (6 * sigmaST);
+                 result.Cpk = Math.min((usl - mu) / (3 * sigmaST), (mu - lsl) / (3 * sigmaST));
+             } else if (usl !== null) {
+                 result.Cpk = (usl - mu) / (3 * sigmaST); // CPU
+             } else if (lsl !== null) {
+                 result.Cpk = (mu - lsl) / (3 * sigmaST); // CPL
+             }
+        }
+
+        // Pp / Ppk (using Long Term Sigma)
+        if (sigmaLT > 0) {
+            if (usl !== null && lsl !== null) {
+                 result.Pp = (usl - lsl) / (6 * sigmaLT);
+                 result.Ppk = Math.min((usl - mu) / (3 * sigmaLT), (mu - lsl) / (3 * sigmaLT));
+             }
+        }
+
+        return result;
+    }
+};
+
+// If using Node.js for testing, export the module
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = SPC;
+}

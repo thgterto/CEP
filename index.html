@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEP PRO - Controle Estatístico Avançado</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- External Libraries -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="brand">
+            <span class="material-icons">analytics</span>
+            <h1>CEP PRO <small>v2.0</small></h1>
+        </div>
+        <div class="kpi-container" id="header-kpis">
+            <!-- KPIs injected by JS -->
+            <div class="kpi-item">
+                <span class="label">N (Amostras)</span>
+                <span class="value" id="kpi-n">-</span>
+            </div>
+            <div class="kpi-item">
+                <span class="label">Cpk</span>
+                <span class="value" id="kpi-cpk">-</span>
+            </div>
+            <div class="kpi-item">
+                <span class="label">Violações</span>
+                <span class="value violation-badge" id="kpi-violations">0</span>
+            </div>
+        </div>
+        <div class="header-controls">
+            <button class="icon-btn" onclick="toggleSidebar()" title="Alternar Sidebar">
+                <span class="material-icons">menu_open</span>
+            </button>
+            <button class="icon-btn" onclick="togglePanel()" title="Alternar Painel">
+                <span class="material-icons">space_dashboard</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="app-container">
+
+        <!-- Left Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-section">
+                <h3><span class="material-icons">input</span> Dados</h3>
+                <div class="input-group">
+                    <label>Importar Dados</label>
+                    <div class="button-group-vertical">
+                        <button class="btn secondary" onclick="document.getElementById('file-upload').click()">
+                            <span class="material-icons">upload_file</span> Excel (.xlsx)
+                        </button>
+                        <input type="file" id="file-upload" accept=".xlsx" hidden>
+
+                        <button class="btn secondary" onclick="App.loadDemo()">
+                            <span class="material-icons">auto_fix_high</span> Dados Demo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Colar Dados (csv/txt)</label>
+                    <textarea id="paste-area" placeholder="Cole valores aqui..." rows="3"></textarea>
+                    <button class="btn secondary small" onclick="App.loadPaste()">Carregar</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><span class="material-icons">settings</span> Configuração</h3>
+                <div class="input-group">
+                    <label>Tipo de Carta</label>
+                    <select id="chart-type">
+                        <option value="imr">I-MR (Individual)</option>
+                        <option value="xbarr">X̄-R (Subgrupos)</option>
+                        <option value="xbars">X̄-S (Subgrupos > 10)</option>
+                        <option value="cusum">CUSUM</option>
+                        <option value="ewma">EWMA</option>
+                        <option value="run">Run Chart</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Tamanho Subgrupo (n)</label>
+                    <input type="number" id="subgroup-size" value="5" min="2" max="25">
+                </div>
+
+                <div class="input-group">
+                    <label>Limites Especificação</label>
+                    <div class="row">
+                        <div class="col">
+                            <small>LSL</small>
+                            <input type="number" id="lsl" placeholder="Min">
+                        </div>
+                        <div class="col">
+                            <small>USL</small>
+                            <input type="number" id="usl" placeholder="Max">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="btn primary full-width" onclick="App.calculate()">
+                    <span class="material-icons">play_arrow</span> Calcular CEP
+                </button>
+            </div>
+        </aside>
+
+        <!-- Center Area -->
+        <main class="main-content">
+            <div id="charts-container" class="charts-grid">
+                <!-- Charts injected by JS -->
+                <div class="placeholder-message">
+                    <span class="material-icons">bar_chart</span>
+                    <p>Carregue dados para visualizar as cartas de controle</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="panel" id="right-panel">
+            <div class="panel-section">
+                <h3><span class="material-icons">analytics</span> Estatísticas</h3>
+                <div id="stats-content" class="stats-grid">
+                    <!-- Stats injected by JS -->
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3><span class="material-icons">speed</span> Capacidade</h3>
+                <div id="capability-content" class="capability-cards">
+                    <!-- Cp/Cpk injected by JS -->
+                </div>
+            </div>
+
+            <div class="panel-section flex-grow">
+                <h3>
+                    <span class="material-icons">error_outline</span> Log de Violações
+                    <span class="badge" id="violation-count">0</span>
+                </h3>
+                <div id="violation-log" class="violation-log-container">
+                    <!-- Logs injected by JS -->
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Ações</h3>
+                <div class="button-grid">
+                    <button class="btn action" onclick="App.drawPareto()">Pareto</button>
+                    <button class="btn action" onclick="App.drawBoxplot()">Boxplot</button>
+                    <button class="btn action" onclick="App.drawInsights()">Insights</button>
+                    <button class="btn secondary" onclick="App.exportCSV('violations')">Exp. CSV</button>
+                    <button class="btn secondary" onclick="App.exportXLSX()">Exp. XLSX</button>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modal-title">Título Modal</h3>
+                <button class="icon-btn" onclick="App.closeModal()">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Content -->
+            </div>
+            <div class="modal-footer" id="modal-footer">
+                <button class="btn secondary" onclick="App.closeModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/spc.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
