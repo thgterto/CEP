@@ -66,20 +66,38 @@ const Utils = {
 
     // --- Export ---
 
+    sanitizeCSVField: (field) => {
+        if (field === null || field === undefined) return "";
+        let str = String(field);
+
+        // 1. Prevent Formula Injection (prepend single quote)
+        // Checks for =, +, -, @, Tab, Carriage Return
+        if (/^[=+\-@\t\r]/.test(str)) {
+            str = "'" + str;
+        }
+
+        // 2. Escape standard CSV characters (", comma, newline)
+        if (/[",\n\r]/.test(str)) {
+            str = '"' + str.replace(/"/g, '""') + '"';
+        }
+
+        return str;
+    },
+
     downloadCSV: (data, filename) => {
         // data: Array of objects or values
         let csvContent = "data:text/csv;charset=utf-8,";
 
         if (typeof data[0] === 'object') {
             const headers = Object.keys(data[0]);
-            csvContent += headers.join(",") + "\r\n";
+            csvContent += headers.map(h => Utils.sanitizeCSVField(h)).join(",") + "\r\n";
             data.forEach(row => {
-                csvContent += headers.map(h => row[h]).join(",") + "\r\n";
+                csvContent += headers.map(h => Utils.sanitizeCSVField(row[h])).join(",") + "\r\n";
             });
         } else {
             csvContent += "Index,Value\r\n";
             data.forEach((val, idx) => {
-                csvContent += `${idx+1},${val}\r\n`;
+                csvContent += `${idx+1},${Utils.sanitizeCSVField(val)}\r\n`;
             });
         }
 
