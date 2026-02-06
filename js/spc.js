@@ -175,44 +175,46 @@ const SPC = {
         const violations = [];
         const sigma = (ucl - cl) / 3;
 
-        // R1: 1 point beyond 3 sigma (UCL/LCL)
-        data.forEach((v, i) => {
-            if (v > ucl || v < lcl) {
-                violations.push({ index: i, value: v, rule: 'R1', text: 'Ponto fora dos limites (3σ)' });
-            }
-        });
+        let countR2 = 0;
+        let signR2 = 0;
 
-        // R2: 9 points on one side of CL
-        let count = 0;
-        let sign = 0;
+        let countR3 = 0;
+        let signR3 = 0;
+
         for (let i = 0; i < data.length; i++) {
-            const s = Math.sign(data[i] - cl);
-            if (s === sign) {
-                count++;
-            } else {
-                sign = s;
-                count = 1;
-            }
-            if (count >= 9) {
-                violations.push({ index: i, value: data[i], rule: 'R2', text: '9+ pontos de um lado da média' });
-            }
-        }
+            const v = data[i];
 
-        // R3: 6 points increasing or decreasing
-        count = 0;
-        sign = 0; // 1 up, -1 down
-        for (let i = 1; i < data.length; i++) {
-             const diff = data[i] - data[i-1];
-             const s = Math.sign(diff);
-             if (s === sign && s !== 0) {
-                 count++;
-             } else {
-                 sign = s;
-                 count = 1;
-             }
-             if (count >= 5) { // 5 intervals = 6 points
-                 violations.push({ index: i, value: data[i], rule: 'R3', text: '6+ pontos em tendência' });
-             }
+            // R1: 1 point beyond 3 sigma (UCL/LCL)
+            if (v > ucl || v < lcl) {
+                violations.push({ index: i, value: v, rule: "R1", text: "Ponto fora dos limites (3σ)" });
+            }
+
+            // R2: 9 points on one side of CL
+            const sR2 = Math.sign(v - cl);
+            if (sR2 === signR2) {
+                countR2++;
+            } else {
+                signR2 = sR2;
+                countR2 = 1;
+            }
+            if (countR2 >= 9) {
+                violations.push({ index: i, value: v, rule: "R2", text: "9+ pontos de um lado da média" });
+            }
+
+            // R3: 6 points increasing or decreasing
+            if (i > 0) {
+                 const diff = v - data[i-1];
+                 const sR3 = Math.sign(diff);
+                 if (sR3 === signR3 && sR3 !== 0) {
+                     countR3++;
+                 } else {
+                     signR3 = sR3;
+                     countR3 = 1;
+                 }
+                 if (countR3 >= 5) { // 5 intervals = 6 points
+                     violations.push({ index: i, value: v, rule: "R3", text: "6+ pontos em tendência" });
+                 }
+            }
         }
 
         return violations;
