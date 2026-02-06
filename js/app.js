@@ -160,18 +160,106 @@ const App = {
     },
 
     drawBoxplot: () => {
-         if (!App.state.data.length) return;
+         if (!App.state.data.length) {
+             alert("Carregue dados primeiro.");
+             return;
+         }
          const divId = 'boxplot-modal';
-         const html = `<div id="${divId}" style="width:100%; height:400px;"></div>`;
+         const html = `<div id="${divId}" style="width:100%; height:450px;"></div>`;
          UI.openModal('Distribuição (Boxplot)', html);
 
          setTimeout(() => {
-             Plotly.newPlot(divId, [{
+             const trace = {
                  y: App.state.data,
                  type: 'box',
                  name: 'Dados',
-                 boxmean: 'sd'
-             }], { margin:{t:20,b:20} });
+                 boxmean: 'sd',
+                 marker: { color: '#118186' },
+                 line: { color: '#118186' }
+             };
+
+             const layout = {
+                 font: { family: 'IBM Plex Sans, sans-serif' },
+                 margin: { t: 40, b: 40, l: 60, r: 20 },
+                 yaxis: {
+                     title: 'Valor',
+                     showgrid: true,
+                     gridcolor: '#eee',
+                     zeroline: false
+                 },
+                 showlegend: false
+             };
+
+             Plotly.newPlot(divId, [trace], layout, { responsive: true, displayModeBar: false });
+         }, 100);
+    },
+
+    drawHistogram: () => {
+         if (!App.state.data.length) {
+             alert("Carregue dados primeiro.");
+             return;
+         }
+         const divId = 'histogram-modal';
+         const html = `<div id="${divId}" style="width:100%; height:450px;"></div>`;
+         UI.openModal('Histograma', html);
+
+         const lsl = parseFloat(document.getElementById('lsl').value);
+         const usl = parseFloat(document.getElementById('usl').value);
+         const mean = App.state.stats ? App.state.stats.mean : null;
+
+         setTimeout(() => {
+             const trace = {
+                 x: App.state.data,
+                 type: 'histogram',
+                 marker: {
+                     color: '#118186',
+                     line: { color: 'white', width: 1 }
+                 },
+                 opacity: 0.75
+             };
+
+             const shapes = [];
+             const annotations = [];
+
+             // Helper to add line
+             const addLine = (val, color, text) => {
+                 if (!isNaN(val)) {
+                     shapes.push({
+                         type: 'line',
+                         x0: val, x1: val,
+                         y0: 0, y1: 1, yref: 'paper',
+                         line: { color: color, width: 2, dash: 'dash' }
+                     });
+                     annotations.push({
+                         x: val, y: 1.05, yref: 'paper',
+                         text: text,
+                         showarrow: false,
+                         font: { color: color, size: 10 }
+                     });
+                 }
+             };
+
+             if (mean !== null) addLine(mean, '#118186', 'μ');
+             addLine(lsl, '#D34041', 'LSL');
+             addLine(usl, '#D34041', 'USL');
+
+             const layout = {
+                 font: { family: 'IBM Plex Sans, sans-serif' },
+                 margin: { t: 50, b: 40, l: 60, r: 20 },
+                 xaxis: {
+                     title: 'Valor',
+                     showgrid: true, gridcolor: '#eee'
+                 },
+                 yaxis: {
+                     title: 'Frequência',
+                     showgrid: true, gridcolor: '#eee'
+                 },
+                 shapes: shapes,
+                 annotations: annotations,
+                 bargap: 0.05
+             };
+
+             Plotly.newPlot(divId, [trace], layout, { responsive: true, displayModeBar: false });
          }, 100);
     },
 
