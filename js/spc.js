@@ -14,8 +14,8 @@ const SPC = {
     // --- Helpers ---
     mean: (arr) => arr.reduce((a, b) => a + b, 0) / arr.length,
 
-    stdDev: (arr, isSample = true) => {
-        const m = SPC.mean(arr);
+    stdDev: (arr, isSample = true, preCalculatedMean = null) => {
+        const m = preCalculatedMean !== null ? preCalculatedMean : SPC.mean(arr);
         const sumSq = arr.reduce((a, b) => a + Math.pow(b - m, 2), 0);
         return Math.sqrt(sumSq / (arr.length - (isSample ? 1 : 0)));
     },
@@ -133,7 +133,7 @@ const SPC = {
 
     computeEWMA: (data, lambda = 0.2) => {
         const mean = SPC.mean(data);
-        const std = SPC.stdDev(data);
+        const std = SPC.stdDev(data, true, mean);
 
         const z = [mean]; // Start with process mean
         const ucl = [], lcl = [];
