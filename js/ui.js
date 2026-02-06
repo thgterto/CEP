@@ -25,7 +25,7 @@ const UI = {
     },
 
     // --- Render Charts ---
-    renderCharts: (spcResult) => {
+    renderCharts: (spcResult, labels = null) => {
         const container = document.getElementById('charts-container');
         container.innerHTML = '';
 
@@ -37,14 +37,34 @@ const UI = {
 
             const traces = [];
 
-            traces.push({
+            // Main Data Trace
+            const traceData = {
                 y: chart.data,
                 type: 'scatter',
                 mode: 'lines+markers',
                 name: 'Dados',
                 line: { color: '#2AA8CE', width: 2 },
                 marker: { color: '#118186', size: 6 }
-            });
+            };
+
+            // Configure Hover with Labels if available
+            // Note: I-MR has 2 charts.
+            // 0: Individual (matches labels)
+            // 1: MR (length - 1, usually index 1..N or 2..N).
+            // For MR, labels should probably be aligned or just ignored.
+            // SPC.js: MR data has 0 prepended?
+            // computeIMR: { type: 'MR', data: [0, ...ranges] } -> Same length as data.
+            // So labels should match 1-to-1.
+
+            // However, Xbar charts (idx 0 and 1) both have aggregated length.
+            // `labels` passed from App.calculate are already aggregated for Xbar.
+
+            if (labels && labels.length === chart.data.length) {
+                traceData.text = labels;
+                traceData.hovertemplate = '<b>%{text}</b><br>Valor: %{y:.2f}<extra></extra>';
+            }
+
+            traces.push(traceData);
 
             if (chart.cl !== null) {
                 traces.push({

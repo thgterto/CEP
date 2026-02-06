@@ -22,16 +22,42 @@ const Utils = {
                 const worksheet = workbook.Sheets[firstSheetName];
                 const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                // Flatten and filter numbers
                 let values = [];
+                let labels = [];
+
+                // Detect structure
+                // Assume if col 1 is number, col 0 might be label
                 json.forEach(row => {
-                    row.forEach(cell => {
-                        if (typeof cell === 'number') values.push(cell);
-                    });
+                    if (row.length >= 2) {
+                        const val = row[1];
+                        if (typeof val === 'number') {
+                            values.push(val);
+                            // Convert Excel date if needed, or just stringify
+                            let label = row[0];
+                             // Simple Excel date check (heuristic) - typically handled by XLSX option cellDates: true but we used raw
+                             // If we want raw strings, row[0] is fine.
+                            labels.push(String(label));
+                        }
+                    } else if (row.length === 1 && typeof row[0] === 'number') {
+                        values.push(row[0]);
+                        labels.push(null);
+                    }
                 });
 
+                // Fallback: if values empty, try flattening like before (just numbers)
+                if (values.length === 0) {
+                     json.forEach(row => {
+                        row.forEach(cell => {
+                            if (typeof cell === 'number') {
+                                values.push(cell);
+                                labels.push(null);
+                            }
+                        });
+                    });
+                }
+
                 if (values.length < 2) reject("Dados insuficientes no arquivo.");
-                else resolve(values);
+                else resolve({ values, labels });
             };
             reader.onerror = reject;
             reader.readAsArrayBuffer(file);
@@ -39,40 +65,70 @@ const Utils = {
     },
 
     parsePaste: (text) => {
-        const parts = text.split(/[,\s\n]+/);
-        const values = parts.map(p => parseFloat(p)).filter(n => !isNaN(n));
-        return values;
+        const lines = text.trim().split(/\n+/);
+        const values = [];
+        const labels = [];
+
+        lines.forEach(line => {
+            // Try splitting by comma or tab
+            const parts = line.split(/[,\t;]+/);
+
+            if (parts.length >= 2) {
+                // Assume Label, Value
+                const val = parseFloat(parts[parts.length - 1]); // Last part is value
+                if (!isNaN(val)) {
+                    values.push(val);
+                    // Join rest as label
+                    labels.push(parts.slice(0, parts.length - 1).join(' ').trim());
+                }
+            } else {
+                // Just value
+                const val = parseFloat(parts[0]);
+                if (!isNaN(val)) {
+                    values.push(val);
+                    labels.push(null);
+                }
+            }
+        });
+
+        return { values, labels };
     },
 
     generateDemoData: () => {
         // Normal distribution approximation (Box-Muller)
         const randn_bm = () => {
             let u = 0, v = 0;
-            while(u === 0) u = Math.random(); //Converting [0,1) to (0,1)
+            while(u === 0) u = Math.random();
             while(v === 0) v = Math.random();
             return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
         };
 
-        const data = [];
+        const values = [];
+        const labels = [];
         const mean = 100;
         const std = 5;
 
+        // Start date: Now
+        let date = new Date();
+
+        const addPoint = (val) => {
+            values.push(val);
+            // Format: HH:mm:ss
+            labels.push(date.toLocaleTimeString());
+            // Increment by 10 mins
+            date = new Date(date.getTime() + 10 * 60000);
+        };
+
         // 50 points stable
-        for(let i=0; i<50; i++) {
-            data.push(mean + randn_bm() * std);
-        }
+        for(let i=0; i<50; i++) addPoint(mean + randn_bm() * std);
 
         // 30 points shifted +1.5 sigma
-        for(let i=0; i<30; i++) {
-            data.push(mean + 7.5 + randn_bm() * std);
-        }
+        for(let i=0; i<30; i++) addPoint(mean + 7.5 + randn_bm() * std);
 
         // 20 points high variance
-        for(let i=0; i<20; i++) {
-            data.push(mean + randn_bm() * (std * 2));
-        }
+        for(let i=0; i<20; i++) addPoint(mean + randn_bm() * (std * 2));
 
-        return data;
+        return { values, labels };
     },
 
     // --- Export ---
@@ -80,23 +136,16 @@ const Utils = {
     sanitizeCSVField: (field) => {
         if (field === null || field === undefined) return "";
         let str = String(field);
-
-        // 1. Prevent Formula Injection (prepend single quote)
-        // Checks for =, +, -, @, Tab, Carriage Return
         if (/^[=+\-@\t\r]/.test(str)) {
             str = "'" + str;
         }
-
-        // 2. Escape standard CSV characters (", comma, newline)
         if (/[",\n\r]/.test(str)) {
             str = '"' + str.replace(/"/g, '""') + '"';
         }
-
         return str;
     },
 
     downloadCSV: (data, filename) => {
-        // data: Array of objects or values
         let csvContent = "data:text/csv;charset=utf-8,";
 
         if (typeof data[0] === 'object') {
