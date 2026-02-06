@@ -1,10 +1,31 @@
 const UI = {
     // --- Layout ---
-    toggleSidebar: () => document.body.classList.toggle('hide-sidebar'),
-    togglePanel: () => document.body.classList.toggle('hide-panel'),
+    toggleSidebar: () => {
+        if (window.innerWidth < 1024) {
+            document.body.classList.toggle('show-sidebar');
+            // Close panel if open to prevent overlap on small screens
+            if (document.body.classList.contains('show-sidebar')) {
+                document.body.classList.remove('show-panel');
+            }
+        } else {
+            document.body.classList.toggle('hide-sidebar');
+        }
+    },
+
+    togglePanel: () => {
+        if (window.innerWidth < 1024) {
+            document.body.classList.toggle('show-panel');
+             // Close sidebar if open
+             if (document.body.classList.contains('show-panel')) {
+                document.body.classList.remove('show-sidebar');
+            }
+        } else {
+            document.body.classList.toggle('hide-panel');
+        }
+    },
 
     // --- Render Charts ---
-    renderCharts: (spcResult) => {
+    renderCharts: (spcResult, labels = null) => {
         const container = document.getElementById('charts-container');
         container.innerHTML = '';
 
@@ -16,14 +37,34 @@ const UI = {
 
             const traces = [];
 
-            traces.push({
+            // Main Data Trace
+            const traceData = {
                 y: chart.data,
                 type: 'scatter',
                 mode: 'lines+markers',
                 name: 'Dados',
                 line: { color: '#2AA8CE', width: 2 },
                 marker: { color: '#118186', size: 6 }
-            });
+            };
+
+            // Configure Hover with Labels if available
+            // Note: I-MR has 2 charts.
+            // 0: Individual (matches labels)
+            // 1: MR (length - 1, usually index 1..N or 2..N).
+            // For MR, labels should probably be aligned or just ignored.
+            // SPC.js: MR data has 0 prepended?
+            // computeIMR: { type: 'MR', data: [0, ...ranges] } -> Same length as data.
+            // So labels should match 1-to-1.
+
+            // However, Xbar charts (idx 0 and 1) both have aggregated length.
+            // `labels` passed from App.calculate are already aggregated for Xbar.
+
+            if (labels && labels.length === chart.data.length) {
+                traceData.text = labels;
+                traceData.hovertemplate = '<b>%{text}</b><br>Valor: %{y:.2f}<extra></extra>';
+            }
+
+            traces.push(traceData);
 
             if (chart.cl !== null) {
                 traces.push({
@@ -122,7 +163,7 @@ const UI = {
         container.innerHTML = violations.map(v => {
             const hasNote = notes[v.index] && (notes[v.index].cause || notes[v.index].action);
             return `
-            <div class="log-item critical" onclick="App.openNote(${v.index})">
+            <div class="log-item critical" onclick="App.openNote(${v.index})" role="button" tabindex="0" onkeypress="if(event.key==='Enter') App.openNote(${v.index})">
                 <div class="log-content">
                     <div class="log-header">
                         <span>#${v.index + 1} ${hasNote ? '📝' : ''}</span>
@@ -135,14 +176,56 @@ const UI = {
     },
 
     // --- Modals ---
+    lastFocusedElement: null,
+
     openModal: (title, contentHTML) => {
+        UI.lastFocusedElement = document.activeElement;
+
+        const overlay = document.getElementById('modal-overlay');
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-body').innerHTML = contentHTML;
-        document.getElementById('modal-overlay').classList.remove('hidden');
+
+        overlay.classList.remove('hidden');
+
+        // Trap Focus Logic
+        const focusableElements = overlay.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusableElements.length > 0) {
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            firstElement.focus();
+
+            overlay.onkeydown = (e) => {
+                if (e.key === 'Tab') {
+                    if (e.shiftKey) { /* shift + tab */
+                        if (document.activeElement === firstElement) {
+                            lastElement.focus();
+                            e.preventDefault();
+                        }
+                    } else { /* tab */
+                        if (document.activeElement === lastElement) {
+                            firstElement.focus();
+                            e.preventDefault();
+                        }
+                    }
+                } else if (e.key === 'Escape') {
+                    UI.closeModal();
+                }
+            };
+        }
     },
 
     closeModal: () => {
-        document.getElementById('modal-overlay').classList.add('hidden');
+        const overlay = document.getElementById('modal-overlay');
+        overlay.classList.add('hidden');
+        overlay.onkeydown = null; // Clear listener
+
+        if (UI.lastFocusedElement) {
+            UI.lastFocusedElement.focus();
+        }
     }
 };
 
