@@ -10,6 +10,10 @@ const App = {
 
     init: () => {
         console.log("CEP PRO Initialized");
+        // Initialize Tooltips
+        if (typeof tippy !== 'undefined') {
+            tippy('[data-tippy-content]');
+        }
     },
 
     // --- Data Inputs ---

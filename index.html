@@ -18,8 +18,14 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" integrity="sha384-Hl48Kq2HifOWdXEjMsKo6qxqvRLTYqIGbvlENBmkHAxZKIGCXv43H6W1jA671RzC" crossorigin="anonymous"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js" integrity="sha384-7uGOMhLhjroTamet5l69PR8EGxKUyWZlZOFFDRymtVqIfsh4Hj7uZRctW67ZCdkD" crossorigin="anonymous"></script>
+
+    <!-- Tooltips (Popper + Tippy) -->
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
 </head>
 <body>
+    <!-- Skip Link -->
+    <a href="#main-content" class="skip-link">Pular para conteúdo principal</a>
 
     <!-- Header -->
     <header class="app-header">
@@ -29,24 +35,24 @@
         </div>
         <div class="kpi-container" id="header-kpis">
             <!-- KPIs injected by JS -->
-            <div class="kpi-item">
-                <span class="label">N (Amostras)</span>
-                <span class="value" id="kpi-n">-</span>
+            <div class="kpi-item" role="status" aria-live="polite" data-tippy-content="Número total de amostras processadas">
+                <span class="label" id="lbl-n">N (Amostras)</span>
+                <span class="value" id="kpi-n" aria-labelledby="lbl-n">-</span>
             </div>
-            <div class="kpi-item">
-                <span class="label">Cpk</span>
-                <span class="value" id="kpi-cpk">-</span>
+            <div class="kpi-item" role="status" aria-live="polite" data-tippy-content="<strong>Cpk (Capacidade Real)</strong><br>Indica se o processo é capaz.<br>> 1.33: Capaz" data-tippy-allowHTML="true">
+                <span class="label" id="lbl-cpk">Cpk</span>
+                <span class="value" id="kpi-cpk" aria-labelledby="lbl-cpk">-</span>
             </div>
-            <div class="kpi-item">
-                <span class="label">Violações</span>
-                <span class="value violation-badge" id="kpi-violations">0</span>
+            <div class="kpi-item" role="status" aria-live="polite" data-tippy-content="Total de pontos fora de controle (regras de Nelson)">
+                <span class="label" id="lbl-viol">Violações</span>
+                <span class="value violation-badge" id="kpi-violations" aria-labelledby="lbl-viol">0</span>
             </div>
         </div>
         <div class="header-controls">
-            <button class="icon-btn" onclick="toggleSidebar()" title="Alternar Sidebar">
+            <button class="icon-btn" onclick="toggleSidebar()" title="Alternar Sidebar" aria-label="Alternar barra lateral">
                 <span class="material-icons">menu_open</span>
             </button>
-            <button class="icon-btn" onclick="togglePanel()" title="Alternar Painel">
+            <button class="icon-btn" onclick="togglePanel()" title="Alternar Painel" aria-label="Alternar painel lateral">
                 <span class="material-icons">space_dashboard</span>
             </button>
         </div>
@@ -56,7 +62,7 @@
     <div class="app-container">
 
         <!-- Left Sidebar -->
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar" id="sidebar" aria-label="Configurações e Dados">
             <div class="sidebar-section">
                 <h3><span class="material-icons">input</span> Dados</h3>
                 <div class="input-group">
@@ -65,7 +71,7 @@
                         <button class="btn secondary" onclick="document.getElementById('file-upload').click()">
                             <span class="material-icons">upload_file</span> Excel (.xlsx)
                         </button>
-                        <input type="file" id="file-upload" accept=".xlsx" hidden>
+                        <input type="file" id="file-upload" accept=".xlsx" hidden aria-label="Upload arquivo Excel">
 
                         <button class="btn secondary" onclick="App.loadDemo()">
                             <span class="material-icons">auto_fix_high</span> Dados Demo
@@ -74,7 +80,7 @@
                 </div>
 
                 <div class="input-group">
-                    <label>Colar Dados (csv/txt)</label>
+                    <label for="paste-area">Colar Dados (csv/txt)</label>
                     <textarea id="paste-area" placeholder="Cole valores aqui..." rows="3"></textarea>
                     <button class="btn secondary small" onclick="App.loadPaste()">Carregar</button>
                 </div>
@@ -83,7 +89,7 @@
             <div class="sidebar-section">
                 <h3><span class="material-icons">settings</span> Configuração</h3>
                 <div class="input-group">
-                    <label>Tipo de Carta</label>
+                    <label for="chart-type">Tipo de Carta <span class="help-icon" data-tippy-content="Selecione o tipo de gráfico de controle adequado para seus dados.">?</span></label>
                     <select id="chart-type">
                         <option value="imr">I-MR (Individual)</option>
                         <option value="xbarr">X̄-R (Subgrupos)</option>
@@ -95,20 +101,20 @@
                 </div>
 
                 <div class="input-group">
-                    <label>Tamanho Subgrupo (n)</label>
+                    <label for="subgroup-size">Tamanho Subgrupo (n) <span class="help-icon" data-tippy-content="Tamanho da amostra para cada ponto. Use 2-10 para X-R, >10 para X-S.">?</span></label>
                     <input type="number" id="subgroup-size" value="5" min="2" max="25">
                 </div>
 
                 <div class="input-group">
-                    <label>Limites Especificação</label>
+                    <label>Limites Especificação <span class="help-icon" data-tippy-content="Limites definidos pelo cliente/engenharia para calcular capacidade (Cp/Cpk).">?</span></label>
                     <div class="row">
                         <div class="col">
-                            <small>LSL</small>
-                            <input type="number" id="lsl" placeholder="Min">
+                            <small id="lbl-lsl">LSL</small>
+                            <input type="number" id="lsl" placeholder="Min" aria-labelledby="lbl-lsl">
                         </div>
                         <div class="col">
-                            <small>USL</small>
-                            <input type="number" id="usl" placeholder="Max">
+                            <small id="lbl-usl">USL</small>
+                            <input type="number" id="usl" placeholder="Max" aria-labelledby="lbl-usl">
                         </div>
                     </div>
                 </div>
@@ -122,8 +128,8 @@
         </aside>
 
         <!-- Center Area -->
-        <main class="main-content">
-            <div id="charts-container" class="charts-grid">
+        <main class="main-content" id="main-content" tabindex="-1">
+            <div id="charts-container" class="charts-grid" role="region" aria-label="Gráficos de Controle">
                 <!-- Charts injected by JS -->
                 <div class="placeholder-message">
                     <span class="material-icons">bar_chart</span>
@@ -133,7 +139,7 @@
         </main>
 
         <!-- Right Panel -->
-        <aside class="panel" id="right-panel">
+        <aside class="panel" id="right-panel" aria-label="Estatísticas e Análise">
             <div class="panel-section">
                 <h3><span class="material-icons">analytics</span> Estatísticas</h3>
                 <div id="stats-content" class="stats-grid">
@@ -153,7 +159,7 @@
                     <span class="material-icons">error_outline</span> Log de Violações
                     <span class="badge" id="violation-count">0</span>
                 </h3>
-                <div id="violation-log" class="violation-log-container">
+                <div id="violation-log" class="violation-log-container" role="log" aria-live="polite">
                     <!-- Logs injected by JS -->
                 </div>
             </div>
@@ -173,11 +179,11 @@
     </div>
 
     <!-- Modals -->
-    <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
         <div class="modal-container">
             <div class="modal-header">
                 <h3 id="modal-title">Título Modal</h3>
-                <button class="icon-btn" onclick="App.closeModal()">
+                <button class="icon-btn" onclick="App.closeModal()" aria-label="Fechar modal">
                     <span class="material-icons">close</span>
                 </button>
             </div>
