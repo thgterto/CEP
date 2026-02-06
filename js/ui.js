@@ -42,22 +42,14 @@ const UI = {
                 y: chart.data,
                 type: 'scatter',
                 mode: 'lines+markers',
-                name: 'Dados',
-                line: { color: '#2AA8CE', width: 2 },
-                marker: { color: '#118186', size: 6 }
+                name: chart.type === 'CUSUM' ? 'C+' : (chart.name.includes('Data') ? 'Data' : 'Dados'),
+                line: { color: '#118186', width: 2 },
+                marker: {
+                    color: '#0D666A',
+                    size: 8,
+                    line: { color: '#ffffff', width: 1 }
+                }
             };
-
-            // Configure Hover with Labels if available
-            // Note: I-MR has 2 charts.
-            // 0: Individual (matches labels)
-            // 1: MR (length - 1, usually index 1..N or 2..N).
-            // For MR, labels should probably be aligned or just ignored.
-            // SPC.js: MR data has 0 prepended?
-            // computeIMR: { type: 'MR', data: [0, ...ranges] } -> Same length as data.
-            // So labels should match 1-to-1.
-
-            // However, Xbar charts (idx 0 and 1) both have aggregated length.
-            // `labels` passed from App.calculate are already aggregated for Xbar.
 
             if (labels && labels.length === chart.data.length) {
                 traceData.text = labels;
@@ -65,6 +57,28 @@ const UI = {
             }
 
             traces.push(traceData);
+
+            // CUSUM Negative Trace
+            if (chart.data2) {
+                const traceData2 = {
+                    y: chart.data2,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'C-',
+                    line: { color: '#2AA8CE', width: 2, dash: 'dot' },
+                    marker: {
+                        color: '#228AB0',
+                        size: 8,
+                        symbol: 'diamond',
+                        line: { color: '#ffffff', width: 1 }
+                    }
+                };
+                if (labels && labels.length === chart.data2.length) {
+                    traceData2.text = labels;
+                    traceData2.hovertemplate = '<b>%{text}</b><br>Valor: %{y:.2f}<extra></extra>';
+                }
+                traces.push(traceData2);
+            }
 
             if (chart.cl !== null) {
                 traces.push({
@@ -102,11 +116,35 @@ const UI = {
             }
 
             const layout = {
-                title: chart.name,
-                margin: { t: 40, b: 40, l: 40, r: 20 },
-                showlegend: false,
-                xaxis: { showgrid: false },
-                yaxis: { showgrid: true, gridcolor: '#eee' }
+                title: {
+                    text: chart.name,
+                    font: { size: 18, color: '#212928', family: 'IBM Plex Sans, sans-serif' }
+                },
+                font: { family: 'IBM Plex Sans, sans-serif' },
+                margin: { t: 60, b: 40, l: 60, r: 40, autoexpand: true },
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    y: 1.1,
+                    x: 0.5,
+                    xanchor: 'center',
+                    bgcolor: 'rgba(255,255,255,0.5)'
+                },
+                xaxis: {
+                    showgrid: true,
+                    gridcolor: '#f0f0f0',
+                    zeroline: false
+                },
+                yaxis: {
+                    showgrid: true,
+                    gridcolor: '#f0f0f0',
+                    zeroline: false
+                },
+                hoverlabel: {
+                    bgcolor: 'white',
+                    font: { size: 14, family: 'IBM Plex Sans, sans-serif' },
+                    bordercolor: '#DBE3EC'
+                }
             };
 
             Plotly.newPlot(div, traces, layout, { responsive: true, displayModeBar: false });
