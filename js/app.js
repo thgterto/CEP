@@ -85,7 +85,7 @@ const App = {
             return;
         }
 
-        App.state.stats = result.stats;
+        const descStats = SPC.calculateDescriptiveStats(App.state.data); App.state.stats = { ...result.stats, ...descStats };
 
         // 2. Anomaly Detection
         const mainChart = result.charts[0];
@@ -118,7 +118,7 @@ const App = {
 
         // 5. Render
         UI.renderCharts(result, chartLabels);
-        UI.renderStats(result.stats);
+        UI.renderStats(App.state.stats);
         UI.renderCapability(cap);
         UI.renderLog(violations, App.state.notes);
     },
@@ -240,8 +240,8 @@ const App = {
              };
 
              if (mean !== null) addLine(mean, '#118186', 'μ');
-             addLine(lsl, '#D34041', 'LSL');
-             addLine(usl, '#D34041', 'USL');
+             addLine(lsl, '#D34041', 'LEI');
+             addLine(usl, '#D34041', 'LES');
 
              const layout = {
                  font: { family: 'IBM Plex Sans, sans-serif' },

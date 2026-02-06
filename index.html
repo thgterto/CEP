@@ -44,7 +44,7 @@
                 <span class="value" id="kpi-cpk" aria-labelledby="lbl-cpk">-</span>
             </div>
             <div class="kpi-item" role="status" aria-live="polite" data-tippy-content="Total de pontos fora de controle (regras de Nelson)">
-                <span class="label" id="lbl-viol">Violações</span>
+                <span class="label" id="lbl-viol">Alertas</span>
                 <span class="value violation-badge" id="kpi-violations" aria-labelledby="lbl-viol">0</span>
             </div>
         </div>
@@ -89,7 +89,7 @@
             <div class="sidebar-section">
                 <h3><span class="material-icons">settings</span> Configuração</h3>
                 <div class="input-group">
-                    <label for="chart-type">Tipo de Carta <span class="help-icon" data-tippy-content="Selecione o tipo de gráfico de controle adequado para seus dados.">?</span></label>
+                    <label for="chart-type">Tipo de Gráfico <span class="help-icon" data-tippy-content="Selecione o tipo de gráfico de controle adequado para seus dados.">?</span></label>
                     <select id="chart-type">
                         <option value="imr">I-MR (Individual)</option>
                         <option value="xbarr">X̄-R (Subgrupos)</option>
@@ -106,14 +106,14 @@
                 </div>
 
                 <div class="input-group">
-                    <label>Limites Especificação <span class="help-icon" data-tippy-content="Limites definidos pelo cliente/engenharia para calcular capacidade (Cp/Cpk).">?</span></label>
+                    <label>Limites de Especificação <span class="help-icon" data-tippy-content="Limites definidos pelo cliente/engenharia para calcular capacidade (Cp/Cpk).">?</span></label>
                     <div class="row">
                         <div class="col">
-                            <small id="lbl-lsl">LSL</small>
+                            <small id="lbl-lsl">LEI</small>
                             <input type="number" id="lsl" placeholder="Min" aria-labelledby="lbl-lsl">
                         </div>
                         <div class="col">
-                            <small id="lbl-usl">USL</small>
+                            <small id="lbl-usl">LES</small>
                             <input type="number" id="usl" placeholder="Max" aria-labelledby="lbl-usl">
                         </div>
                     </div>
@@ -156,7 +156,7 @@
 
             <div class="panel-section flex-grow">
                 <h3>
-                    <span class="material-icons">error_outline</span> Log de Violações
+                    <span class="material-icons">error_outline</span> Log de Alertas
                     <span class="badge" id="violation-count">0</span>
                 </h3>
                 <div id="violation-log" class="violation-log-container" role="log" aria-live="polite">

@@ -85,34 +85,67 @@ const UI = {
                     y: Array(chart.data.length).fill(chart.cl),
                     type: 'scatter',
                     mode: 'lines',
-                    name: 'CL',
+                    name: 'Média',
                     line: { color: '#118186', dash: 'dash', width: 1 },
                     hoverinfo: 'none'
                 });
             }
 
-            if (chart.ucl !== null) {
+            if (chart.ucl !== null && chart.lcl !== null && chart.cl !== null) {
                 const uclData = Array.isArray(chart.uclArray) ? chart.uclArray : Array(chart.data.length).fill(chart.ucl);
+                const lclData = Array.isArray(chart.lclArray) ? chart.lclArray : Array(chart.data.length).fill(chart.lcl);
+
                 traces.push({
                     y: uclData,
                     type: 'scatter',
                     mode: 'lines',
-                    name: 'UCL',
+                    name: 'LCS',
                     line: { color: '#D34041', dash: 'dash', width: 1 },
                     hoverinfo: 'none'
                 });
-            }
 
-            if (chart.lcl !== null) {
-                 const lclData = Array.isArray(chart.lclArray) ? chart.lclArray : Array(chart.data.length).fill(chart.lcl);
                 traces.push({
                     y: lclData,
                     type: 'scatter',
                     mode: 'lines',
-                    name: 'LCL',
+                    name: 'LCI',
                     line: { color: '#D34041', dash: 'dash', width: 1 },
                     hoverinfo: 'none'
                 });
+
+                // Segmentation (Zones)
+                if (!Array.isArray(chart.uclArray)) {
+                    const sigma = (chart.ucl - chart.cl) / 3;
+                    if (sigma > 0) {
+                        const plus1 = chart.cl + sigma;
+                        const plus2 = chart.cl + 2 * sigma;
+                        const minus1 = chart.cl - sigma;
+                        const minus2 = chart.cl - 2 * sigma;
+
+                        const zoneLine = { color: '#e0e0e0', dash: 'dot', width: 1 };
+
+                        [plus1, plus2, minus1, minus2].forEach(yVal => {
+                            traces.push({
+                                y: Array(chart.data.length).fill(yVal),
+                                type: 'scatter',
+                                mode: 'lines',
+                                name: 'Zona',
+                                showlegend: false,
+                                line: zoneLine,
+                                hoverinfo: 'none'
+                            });
+                        });
+                    }
+                }
+            } else {
+                 if (chart.ucl !== null) {
+                    const uclData = Array.isArray(chart.uclArray) ? chart.uclArray : Array(chart.data.length).fill(chart.ucl);
+                    traces.push({ y: uclData, type: 'scatter', mode: 'lines', name: 'LCS', line: { color: '#D34041', dash: 'dash', width: 1 } });
+                 }
+                 if (chart.lcl !== null) {
+                    const lclData = Array.isArray(chart.lclArray) ? chart.lclArray : Array(chart.data.length).fill(chart.lcl);
+                    traces.push({ y: lclData, type: 'scatter', mode: 'lines', name: 'LCI', line: { color: '#D34041', dash: 'dash', width: 1 } });
+                 }
             }
 
             const layout = {
@@ -154,10 +187,31 @@ const UI = {
     // --- Render Stats ---
     renderStats: (stats) => {
         const container = document.getElementById('stats-content');
-        container.innerHTML = `
-            <div class="stat-item"><span>Média (μ)</span><strong>${stats.mean.toFixed(2)}</strong></div>
-            <div class="stat-item"><span>Desvio (σ)</span><strong>${stats.sigma.toFixed(3)}</strong></div>
-        `;
+        let html = '';
+        const addItem = (label, value, precision=2) => {
+            if (value !== undefined && value !== null) {
+                const valStr = (Array.isArray(value) ? value.join(', ') : (typeof value === 'number' ? value.toFixed(precision) : value));
+                html += `<div class="stat-item"><span>${label}</span><strong>${valStr}</strong></div>`;
+            }
+        };
+
+        addItem('N', stats.count, 0);
+        addItem('Média (μ)', stats.mean);
+        addItem('Mediana', stats.median);
+        addItem('Moda', (Array.isArray(stats.mode) && stats.mode.length > 3) ? 'Múltipla' : stats.mode);
+        addItem('Desvio (σ)', stats.sigma !== undefined ? stats.sigma : stats.stdDev, 3);
+        addItem('Mínimo', stats.min);
+        addItem('Máximo', stats.max);
+        addItem('Amplitude', stats.range);
+        addItem('Variância', stats.variance);
+        addItem('CV (%)', stats.cv);
+        addItem('Assimetria', stats.skewness, 3);
+        addItem('Curtose', stats.kurtosis, 3);
+        addItem('Q1', stats.q1);
+        addItem('Q3', stats.q3);
+        addItem('IQR', stats.iqr);
+
+        container.innerHTML = html;
     },
 
     renderCapability: (cap) => {
