@@ -170,11 +170,11 @@ const App = {
         const html = `
             <div class="input-group">
                 <label>Causa Raiz</label>
-                <textarea id="note-cause" rows="3">${note.cause}</textarea>
+                <textarea id="note-cause" rows="3">${Utils.escapeHTML(note.cause)}</textarea>
             </div>
             <div class="input-group">
                 <label>Ação Corretiva</label>
-                <textarea id="note-action" rows="3">${note.action}</textarea>
+                <textarea id="note-action" rows="3">${Utils.escapeHTML(note.action)}</textarea>
             </div>
             <button class="btn primary full-width" onclick="App.saveNote()">Salvar Anotação</button>
         `;
