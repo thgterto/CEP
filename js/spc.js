@@ -16,7 +16,10 @@ const SPC = {
 
     stdDev: (arr, isSample = true) => {
         const m = SPC.mean(arr);
-        const sumSq = arr.reduce((a, b) => a + Math.pow(b - m, 2), 0);
+        const sumSq = arr.reduce((a, b) => {
+            const diff = b - m;
+            return a + diff * diff;
+        }, 0);
         return Math.sqrt(sumSq / (arr.length - (isSample ? 1 : 0)));
     },
 
