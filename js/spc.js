@@ -168,6 +168,30 @@ const SPC = {
         };
     },
 
+    // --- Descriptive Statistics ---
+
+    calculateDescriptiveStats: (data) => {
+        if (!data || data.length === 0) return {};
+        const j = jStat(data);
+        return {
+            count: data.length,
+            mean: j.mean(),
+            median: j.median(),
+            mode: j.mode(),
+            min: j.min(),
+            max: j.max(),
+            range: j.range(),
+            variance: j.variance(),
+            stdDev: j.stdev(true),
+            skewness: j.skewness(),
+            kurtosis: j.kurtosis(),
+            q1: j.quartiles()[0],
+            q3: j.quartiles()[2],
+            iqr: j.quartiles()[2] - j.quartiles()[0],
+            cv: (j.stdev(true) / j.mean()) * 100
+        };
+    },
+
     // --- Anomaly Detection ---
 
     detectViolations: (chartData) => {
@@ -187,7 +211,7 @@ const SPC = {
 
             // R1: 1 point beyond 3 sigma (UCL/LCL)
             if (v > ucl || v < lcl) {
-                violations.push({ index: i, value: v, rule: "R1", text: "Ponto fora dos limites (3σ)" });
+                violations.push({ index: i, value: v, rule: "R1", text: "Fora de Controle (3σ)" });
             }
 
             // R2: 9 points on one side of CL
