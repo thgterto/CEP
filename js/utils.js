@@ -69,19 +69,22 @@ const Utils = {
     downloadCSV: (data, filename) => {
         // data: Array of objects or values
         let csvContent = "data:text/csv;charset=utf-8,";
+        const rows = [];
 
         if (typeof data[0] === 'object') {
             const headers = Object.keys(data[0]);
-            csvContent += headers.join(",") + "\r\n";
+            rows.push(headers.join(","));
             data.forEach(row => {
-                csvContent += headers.map(h => row[h]).join(",") + "\r\n";
+                rows.push(headers.map(h => row[h]).join(","));
             });
         } else {
-            csvContent += "Index,Value\r\n";
+            rows.push("Index,Value");
             data.forEach((val, idx) => {
-                csvContent += `${idx+1},${val}\r\n`;
+                rows.push(`${idx+1},${val}`);
             });
         }
+
+        csvContent += rows.join("\r\n") + "\r\n";
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
