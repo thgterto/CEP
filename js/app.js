@@ -9,12 +9,62 @@ const App = {
         currentNoteIndex: null
     },
 
-    init: () => {
+
+    handleSettingsChange: () => {
+        const type = document.getElementById('chart-type').value;
+
+        // Contextual UI: Hide subgroup size for I-MR, CUSUM, EWMA, Run
+        const subgroupContainer = document.getElementById('subgroup-size').parentElement;
+        if (['imr', 'cusum', 'ewma', 'run'].includes(type)) {
+            subgroupContainer.style.display = 'none';
+        } else {
+            subgroupContainer.style.display = 'block';
+        }
+
+        // Reactive Calculation
+        if (App.state.data && App.state.data.length > 0) {
+            App.calculate();
+        }
+    },
+
+        init: () => {
         console.log("CEP PRO Initialized");
         // Initialize Tooltips
         if (typeof tippy !== 'undefined') {
             tippy('[data-tippy-content]');
         }
+
+        // Reactive Settings Listeners
+        ['chart-type', 'subgroup-size', 'lsl', 'usl'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', App.handleSettingsChange);
+                el.addEventListener('input', () => {
+                    // Debounce for text inputs if needed, but 'change' covers blur/enter.
+                    // For instant feedback on sliders/numbers, we might want input with debounce.
+                    // For now, 'change' is safe for numbers.
+                });
+            }
+        });
+
+
+        // Smart Paste Listener
+        const pasteArea = document.getElementById('paste-area');
+        if (pasteArea) {
+            let debounceTimer;
+            pasteArea.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    const val = pasteArea.value;
+                    if (val && val.length > 5) { // minimal check
+                        App.loadPaste();
+                    }
+                }, 500);
+            });
+        }
+
+        // Initial UI State
+        App.handleSettingsChange();
     },
 
     // --- Data Inputs ---
@@ -121,6 +171,11 @@ const App = {
         UI.renderStats(App.state.stats);
         UI.renderCapability(cap);
         UI.renderLog(violations, App.state.notes);
+        // Mobile UX: Auto-close sidebar
+        if (window.innerWidth < 1024 && document.body.classList.contains('show-sidebar')) {
+            UI.toggleSidebar();
+        }
+
     },
 
     // --- Advanced Features ---
