@@ -85,8 +85,14 @@ const SPC = {
             if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+        const xbars = [];
+        const sigmas = [];
+
+        for (const g of subgroups) {
+            const m = SPC.mean(g);
+            xbars.push(m);
+            sigmas.push(SPC.stdDev(g, true, m));
+        }
 
         const xdbar = SPC.mean(xbars);
         const sbar = SPC.mean(sigmas);
@@ -106,8 +112,13 @@ const SPC = {
     },
 
     computeCUSUM: (data, target = null, sigma = null) => {
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        let calculatedMean = null;
+        if (target === null || sigma === null) {
+            calculatedMean = SPC.mean(data);
+        }
+
+        const mean = target !== null ? target : calculatedMean;
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, calculatedMean);
         const k = 0.5 * std;
         const h = 5 * std;
 
@@ -249,7 +260,7 @@ const SPC = {
 
     computeCapability: (data, usl, lsl, sigmaST) => {
         const mu = SPC.mean(data);
-        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+        const sigmaLT = SPC.stdDev(data, true, mu); // Total Standard Deviation
 
         const result = {
             mean: mu,
