@@ -65,13 +65,24 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const xbars = [];
+        const ranges = [];
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+        // Optimization: Avoid data.slice() and array maps to reduce memory allocation
+        // and improve performance on large datasets.
+        for (let i = 0; i <= data.length - n; i += n) {
+            let sum = 0;
+            let min = data[i];
+            let max = data[i];
+            for (let j = 0; j < n; j++) {
+                const val = data[i + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+            xbars.push(sum / n);
+            ranges.push(max - min);
+        }
 
         const xdbar = SPC.mean(xbars);
         const rbar = SPC.mean(ranges);
@@ -93,13 +104,26 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const xbars = [];
+        const sigmas = [];
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+        // Optimization: Avoid data.slice() and array maps to reduce memory allocation
+        // and improve performance on large datasets.
+        for (let i = 0; i <= data.length - n; i += n) {
+            let sum = 0;
+            for (let j = 0; j < n; j++) {
+                sum += data[i + j];
+            }
+            const mean = sum / n;
+            xbars.push(mean);
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[i + j] - mean;
+                sumSq += diff * diff;
+            }
+            sigmas.push(Math.sqrt(sumSq / (n - 1)));
+        }
 
         const xdbar = SPC.mean(xbars);
         const sbar = SPC.mean(sigmas);
