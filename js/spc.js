@@ -65,13 +65,27 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const numCompleteSubgroups = Math.floor(data.length / n);
+        const xbars = new Array(numCompleteSubgroups);
+        const ranges = new Array(numCompleteSubgroups);
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+        // Optimization: Avoid data.slice, Math.max(...), and map() to reduce memory allocations and spread overhead
+        for (let i = 0; i < numCompleteSubgroups; i++) {
+            const startIdx = i * n;
+            let sum = 0;
+            let min = data[startIdx];
+            let max = data[startIdx];
+
+            for (let j = 0; j < n; j++) {
+                const val = data[startIdx + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            xbars[i] = sum / n;
+            ranges[i] = max - min;
+        }
 
         const xdbar = SPC.mean(xbars);
         const rbar = SPC.mean(ranges);
@@ -93,13 +107,29 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const numCompleteSubgroups = Math.floor(data.length / n);
+        const xbars = new Array(numCompleteSubgroups);
+        const sigmas = new Array(numCompleteSubgroups);
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+        // Optimization: Avoid data.slice and map() for calculating standard deviations directly on slices
+        for (let i = 0; i < numCompleteSubgroups; i++) {
+            const startIdx = i * n;
+            let sum = 0;
+
+            for (let j = 0; j < n; j++) {
+                sum += data[startIdx + j];
+            }
+
+            const mean = sum / n;
+            xbars[i] = mean;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[startIdx + j] - mean;
+                sumSq += diff * diff;
+            }
+            sigmas[i] = Math.sqrt(sumSq / (n - 1));
+        }
 
         const xdbar = SPC.mean(xbars);
         const sbar = SPC.mean(sigmas);
