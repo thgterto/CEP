@@ -37,13 +37,23 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        // Optimization: Pre-allocate array and avoid spread operator [0, ...ranges]
+        const ranges = new Array(len);
+        ranges[0] = 0; // First moving range is 0 to align arrays
+
+        let sumRanges = 0;
+
+        // Optimization: Single pass calculation for ranges and their sum
+        for (let i = 1; i < len; i++) {
+            const range = Math.abs(data[i] - data[i-1]);
+            ranges[i] = range;
+            sumRanges += range;
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        // Optimization: Calculate mean directly avoiding another O(N) iteration
+        const meanR = sumRanges / (len - 1);
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +66,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: ranges, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
