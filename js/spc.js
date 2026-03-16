@@ -37,13 +37,24 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) return { error: "Sem dados suficientes." };
+
+        let sumX = data[0];
+        let sumR = 0;
+        const mrData = new Array(len);
+        mrData[0] = 0;
+
+        // Optimization: Single-pass loop, pre-allocated array, avoid spread operator
+        for (let i = 1; i < len; i++) {
+            sumX += data[i];
+            const r = Math.abs(data[i] - data[i-1]);
+            mrData[i] = r;
+            sumR += r;
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanX = sumX / len;
+        const meanR = len > 1 ? sumR / (len - 1) : 0;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +67,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -120,22 +131,31 @@ const SPC = {
 
     computeCUSUM: (data, target = null, sigma = null) => {
         const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, mean);
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const len = data.length;
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        let cp = 0;
+        let cn = 0;
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
+
+        // Optimization: Pre-allocate arrays, avoid shift, and inline Math.max/min
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+            cp = xi - meanPlusK + cp;
+            if (cp < 0) cp = 0;
+
+            cn = xi - meanMinusK + cn;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -149,19 +169,30 @@ const SPC = {
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const len = data.length;
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        let prevZ = mean;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        // Optimization: incremental multiplication instead of Math.pow, pre-allocated arrays
+        let oneMinusLambdaPow = 1;
+        const oneMinusLambdaSq = (1 - lambda) * (1 - lambda);
+        const lambdaFactor = lambda / (2 - lambda);
+
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + (1 - lambda) * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            oneMinusLambdaPow *= oneMinusLambdaSq;
+            const sigmaZ = std * Math.sqrt(lambdaFactor * (1 - oneMinusLambdaPow));
+            const limitDist = L * sigmaZ;
+            ucl[i] = mean + limitDist;
+            lcl[i] = mean - limitDist;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
