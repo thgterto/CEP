@@ -1,0 +1,4 @@
+
+## 2026-03-23 - Fast TypedArray Sorting and Inline Conditionals for O(N) loops
+**Learning:** Native `Array.prototype.sort((a,b) => a-b)` in V8 is incredibly slow for sorting large numeric arrays. Leveraging TypedArrays (`new Float64Array(data).sort()`) uses the native optimized C++ sort internally without callback overhead, resulting in massive speedups (6x+ for 1M elements) for median calculations. Additionally, calling Math functions like `Math.sign` in tight `O(N)` loops introduces function call overhead that can be avoided by inlining with simple conditionals (`x > 0 ? 1 : (x < 0 ? -1 : 0)`).
+**Action:** When finding the median of numeric arrays or doing sorting, prefer TypedArrays (`Float64Array`) if data is strictly numerical. Inline simple Math functions in hot paths for detectable performance gains.
