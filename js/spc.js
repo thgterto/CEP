@@ -172,7 +172,9 @@ const SPC = {
     },
 
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        // Optimization: Use Float64Array for sorting numeric data which is significantly faster than standard array sort with a custom comparator
+        const sorted = new Float64Array(data).sort();
+        const median = sorted[Math.floor(data.length / 2)];
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
@@ -228,7 +230,9 @@ const SPC = {
             }
 
             // R2: 9 points on one side of CL
-            const sR2 = Math.sign(v - cl);
+            // Optimization: Inline Math.sign using conditionals to avoid function call overhead
+            const diffR2 = v - cl;
+            const sR2 = diffR2 > 0 ? 1 : (diffR2 < 0 ? -1 : 0);
             if (sR2 === signR2) {
                 countR2++;
             } else {
@@ -242,7 +246,8 @@ const SPC = {
             // R3: 6 points increasing or decreasing
             if (i > 0) {
                  const diff = v - data[i-1];
-                 const sR3 = Math.sign(diff);
+                 // Optimization: Inline Math.sign
+                 const sR3 = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
                  if (sR3 === signR3 && sR3 !== 0) {
                      countR3++;
                  } else {
