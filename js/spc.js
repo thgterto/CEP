@@ -172,7 +172,9 @@ const SPC = {
     },
 
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        // Optimization: Float64Array.sort() is significantly faster than Array.prototype.sort() for large dense numeric arrays,
+        // and its constructor naturally creates a copy (safely avoiding in-place mutation).
+        const median = new Float64Array(data).sort()[Math.floor(data.length/2)];
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
