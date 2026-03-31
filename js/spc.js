@@ -37,13 +37,21 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+
+        // Optimization: Single-pass iteration and pre-allocated array avoid O(N) allocation overhead
+        const mrData = new Array(len);
+        mrData[0] = 0;
+
+        let sumR = 0;
+        for (let i = 1; i < len; i++) {
+            const range = Math.abs(data[i] - data[i-1]);
+            mrData[i] = range;
+            sumR += range;
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanR = len > 1 ? sumR / (len - 1) : 0;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +64,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -65,16 +73,40 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+
+        // Optimization: Single-pass over subgroups without using slice(), map(), or Math.max/min
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        let sumXbar = 0;
+        let sumR = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            let min = data[i * n];
+            let max = min;
+
+            for (let j = 0; j < n; j++) {
+                const val = data[i * n + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            const mean = sum / n;
+            const range = max - min;
+
+            xbars[i] = mean;
+            ranges[i] = range;
+
+            sumXbar += mean;
+            sumR += range;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
-
-        const xdbar = SPC.mean(xbars);
-        const rbar = SPC.mean(ranges);
+        const xdbar = numGroups > 0 ? sumXbar / numGroups : 0;
+        const rbar = numGroups > 0 ? sumR / numGroups : 0;
 
         const A2 = SPC.CONSTANTS.A2[n];
         const D4 = SPC.CONSTANTS.D4[n];
@@ -93,16 +125,39 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+
+        // Optimization: Single-pass over subgroups without using slice() or map()
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        let sumXbar = 0;
+        let sumS = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            for (let j = 0; j < n; j++) {
+                sum += data[i * n + j];
+            }
+            const mean = sum / n;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[i * n + j] - mean;
+                sumSq += diff * diff;
+            }
+            const sigma = Math.sqrt(sumSq / (n - 1));
+
+            xbars[i] = mean;
+            sigmas[i] = sigma;
+
+            sumXbar += mean;
+            sumS += sigma;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
-
-        const xdbar = SPC.mean(xbars);
-        const sbar = SPC.mean(sigmas);
+        const xdbar = numGroups > 0 ? sumXbar / numGroups : 0;
+        const sbar = numGroups > 0 ? sumS / numGroups : 0;
 
         const A3 = SPC.CONSTANTS.A3[n];
         const B4 = SPC.CONSTANTS.B4[n];
