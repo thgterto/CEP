@@ -65,16 +65,37 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        // Optimization: Pre-allocate arrays and process single-pass rather than nested functional operations (.slice, .map)
+        const numGroups = Math.floor(data.length / n);
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        let sumXbar = 0;
+        let sumR = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            let min = data[i * n];
+            let max = min;
+
+            for (let j = 0; j < n; j++) {
+                const val = data[i * n + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            const xbar = sum / n;
+            const r = max - min;
+
+            xbars[i] = xbar;
+            ranges[i] = r;
+            sumXbar += xbar;
+            sumR += r;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
-
-        const xdbar = SPC.mean(xbars);
-        const rbar = SPC.mean(ranges);
+        const xdbar = numGroups > 0 ? sumXbar / numGroups : 0;
+        const rbar = numGroups > 0 ? sumR / numGroups : 0;
 
         const A2 = SPC.CONSTANTS.A2[n];
         const D4 = SPC.CONSTANTS.D4[n];
@@ -93,16 +114,37 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        // Optimization: Pre-allocate arrays and process single-pass rather than nested functional operations (.slice, .map)
+        const numGroups = Math.floor(data.length / n);
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        let sumXbar = 0;
+        let sumS = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            for (let j = 0; j < n; j++) {
+                sum += data[i * n + j];
+            }
+            const mean = sum / n;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[i * n + j] - mean;
+                sumSq += diff * diff;
+            }
+            // For n <= 1, S is undefined, but check prevents n < 2 at start
+            const s = Math.sqrt(sumSq / (n - 1));
+
+            xbars[i] = mean;
+            sigmas[i] = s;
+            sumXbar += mean;
+            sumS += s;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
-
-        const xdbar = SPC.mean(xbars);
-        const sbar = SPC.mean(sigmas);
+        const xdbar = numGroups > 0 ? sumXbar / numGroups : 0;
+        const sbar = numGroups > 0 ? sumS / numGroups : 0;
 
         const A3 = SPC.CONSTANTS.A3[n];
         const B4 = SPC.CONSTANTS.B4[n];
