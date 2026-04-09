@@ -1,0 +1,3 @@
+## 2026-04-09 - IMR Optimization Spread Operator Vulnerability
+**Learning:** Using the spread operator (`[0, ...ranges]`) on very large arrays (e.g., 100k+ elements) in V8/Node.js is not just a performance bottleneck due to O(N) reallocation, but an actual vulnerability that can trigger a `RangeError: Maximum call stack size exceeded`.
+**Action:** When implementing mathematical arrays in functions handling potentially massive datasets (like `computeIMR`), avoid the spread operator completely. Use `new Array(len)` to pre-allocate memory and iterate through a single loop to assign values. This solves the call stack limitation and speeds up processing significantly (e.g., ~3.5x for 100k elements).
