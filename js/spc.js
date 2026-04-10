@@ -37,13 +37,37 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+
+        if (len === 0) return { error: "Sem dados para o gráfico I-MR" };
+        if (len === 1) return {
+             charts: [
+                { type: 'I', data: data, cl: data[0], ucl: data[0], lcl: data[0], name: 'Individual' },
+                { type: 'MR', data: [0], cl: 0, ucl: 0, lcl: 0, name: 'Moving Range' }
+            ],
+            stats: { mean: data[0], sigma: 0 }
+        };
+
+        // Optimization: Pre-allocate array and compute sums in a single pass
+        const mrData = new Array(len);
+        mrData[0] = 0;
+
+        let sumX = data[0];
+        let sumR = 0;
+
+        for (let i = 1; i < len; i++) {
+            const val = data[i];
+            sumX += val;
+
+            const diff = val - data[i-1];
+            // Inline Math.abs for speed
+            const range = diff < 0 ? -diff : diff;
+            mrData[i] = range;
+            sumR += range;
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanX = sumX / len;
+        const meanR = sumR / (len - 1);
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +80,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -65,13 +89,31 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+        if (numGroups === 0) return { error: "Dados insuficientes para formar subgrupos." };
+
+        // Optimization: Pre-allocate arrays and process single pass instead of slice/map
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            const startIdx = i * n;
+            let sum = 0;
+            let min = data[startIdx];
+            let max = data[startIdx];
+
+            for (let j = 0; j < n; j++) {
+                const val = data[startIdx + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            xbars[i] = sum / n;
+            ranges[i] = max - min;
+        }
 
         const xdbar = SPC.mean(xbars);
         const rbar = SPC.mean(ranges);
@@ -93,13 +135,32 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+        if (numGroups === 0) return { error: "Dados insuficientes para formar subgrupos." };
+
+        // Optimization: Pre-allocate arrays and process single pass instead of slice/map
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            const startIdx = i * n;
+            let sum = 0;
+
+            for (let j = 0; j < n; j++) {
+                sum += data[startIdx + j];
+            }
+            const mean = sum / n;
+            xbars[i] = mean;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[startIdx + j] - mean;
+                sumSq += diff * diff;
+            }
+            sigmas[i] = Math.sqrt(sumSq / (n - 1));
+        }
 
         const xdbar = SPC.mean(xbars);
         const sbar = SPC.mean(sigmas);
