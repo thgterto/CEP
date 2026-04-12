@@ -1,0 +1,3 @@
+## 2024-05-18 - Math.ceil vs Math.floor Regression in Data Grouping
+**Learning:** When subgrouping arrays for fixed-size control charts (like Xbar-R, Xbar-S), the original algorithm relies on strict boundaries (e.g., `i + n <= data.length`) to drop incomplete final subsets. Using `Math.ceil(len/n)` and partially filling the last group creates a mathematical regression because the control chart lookup constants (`A2`, `D4`, etc.) are rigidly bound to the subgroup size `n`.
+**Action:** When replacing array slicing with pre-allocated index logic for subgrouping, strictly use `Math.floor(len / n)` for the array size and run inline logic exactly `n` times to mimic the original clipping behavior.
