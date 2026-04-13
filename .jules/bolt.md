@@ -1,0 +1,3 @@
+## 2024-05-24 - Array Operations and Memory Reallocation Overheads
+**Learning:** Replacing `data.slice`, array spreads `...`, and higher-order functions like `.map()` with simple `for` loops and pre-allocated arrays `new Array(numGroups)` when calculating chart datasets in statistical routines (like `computeXbarR` and `computeXbarS`) yields a massive performance improvement (e.g., ~6x-12x) for big datasets. Memory allocation per subgroup and spread operation scaling was a huge unseen overhead.
+**Action:** When working on math/array-heavy code processing subgroup datasets, directly aggregate values inside a nested `for` loop onto pre-allocated output arrays. Avoid `slice()` and `map()` chains.
