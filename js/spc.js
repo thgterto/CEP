@@ -65,16 +65,49 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        // Optimization: Replace array slicing, spread syntax, and map with single-pass for loops
+        // and pre-allocated arrays to significantly boost performance and avoid call stack limits.
+        const numGroups = Math.floor(data.length / n);
+
+        if (numGroups === 0) {
+            return {
+                charts: [
+                    { type: 'Xbar', data: [], cl: 0, ucl: 0, lcl: 0, name: 'Média (X̄)' },
+                    { type: 'R', data: [], cl: 0, ucl: 0, lcl: 0, name: 'Amplitude (R)' }
+                ],
+                stats: { mean: 0, sigma: 0 }
+            };
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
 
-        const xdbar = SPC.mean(xbars);
-        const rbar = SPC.mean(ranges);
+        let sumX = 0;
+        let sumR = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            const offset = i * n;
+            let sum = 0;
+            let min = data[offset];
+            let max = data[offset];
+            for (let j = 0; j < n; j++) {
+                const val = data[offset + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+            const mean = sum / n;
+            const range = max - min;
+
+            xbars[i] = mean;
+            ranges[i] = range;
+
+            sumX += mean;
+            sumR += range;
+        }
+
+        const xdbar = sumX / numGroups;
+        const rbar = sumR / numGroups;
 
         const A2 = SPC.CONSTANTS.A2[n];
         const D4 = SPC.CONSTANTS.D4[n];
