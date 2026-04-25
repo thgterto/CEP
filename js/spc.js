@@ -37,13 +37,33 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) return {
+            charts: [
+                { type: 'I', data: [], cl: 0, ucl: 0, lcl: 0, name: 'Individual' },
+                { type: 'MR', data: [], cl: 0, ucl: 0, lcl: 0, name: 'Moving Range' }
+            ],
+            stats: { mean: 0, sigma: 0 }
+        };
+
+        // Optimization: Pre-allocate array and compute means in a single pass to avoid O(N) allocation and spread operator overhead
+        const mrData = new Array(len);
+        mrData[0] = 0; // First element is 0
+
+        let sumX = data[0];
+        let sumR = 0;
+
+        for (let i = 1; i < len; i++) {
+            sumX += data[i];
+            const r = Math.abs(data[i] - data[i - 1]);
+            mrData[i] = r;
+            sumR += r;
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanX = sumX / len;
+        // The original SPC.mean(ranges) divides by ranges.length which is len - 1
+        const numRanges = len - 1 > 0 ? len - 1 : 1;
+        const meanR = sumR / numRanges;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +76,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
