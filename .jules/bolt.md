@@ -1,0 +1,3 @@
+## 2024-04-25 - Avoid Call Stack Crashes with Array Spead Operators
+**Learning:** Using the spread operator (`[...array]`) on arrays passed into other array literals (e.g. `[0, ...ranges]`) can cause `RangeError: Maximum call stack size exceeded` on V8 engines when datasets are exceptionally large, effectively acting as an application crashing vector.
+**Action:** When working with dynamically sized arrays in computation-heavy statistical environments, explicitly pre-allocate an array with its full length (e.g., `new Array(len)`) and populate it using a single-pass `for` loop. This avoids stack exhaustion and significantly boosts performance.
