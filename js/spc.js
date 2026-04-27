@@ -124,18 +124,30 @@ const SPC = {
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        // Optimization: Pre-allocate arrays and manually track state instead of push/shift.
+        // Also inline Math.max/min and cache invariants for performance on large datasets.
+        const len = data.length;
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        let lastCp = 0;
+        let lastCn = 0;
+
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            let cp = xi - meanPlusK + lastCp;
+            lastCp = cp > 0 ? cp : 0;
+
+            let cn = xi - meanMinusK + lastCn;
+            lastCn = cn < 0 ? cn : 0;
+
+            cPos[i] = lastCp;
+            cNeg[i] = lastCn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
