@@ -1,0 +1,3 @@
+## 2024-04-29 - Optimize `computeCUSUM`
+**Learning:** In highly repetitive loops like the one in `computeCUSUM`, standard Javascript arrays being managed via `.push()` and `.shift()` have huge overhead. Additionally, `Math.max(0, x)` and `Math.min(0, x)` inside tight O(N) loops add a massive number of function calls. Replacing these with pre-allocated arrays and simple inline `if` conditions `if (x < 0) x = 0` provides drastic performance benefits while being functionally identical.
+**Action:** When finding loops dealing with array construction and continuous bounds-checking via Math functions over massive datasets, pre-allocate arrays, extract constants to outside the loop, and use conditionals.
