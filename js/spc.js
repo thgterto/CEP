@@ -123,19 +123,31 @@ const SPC = {
         const std = sigma !== null ? sigma : SPC.stdDev(data);
         const k = 0.5 * std;
         const h = 5 * std;
+        const len = data.length;
 
-        let cPos = [0];
-        let cNeg = [0];
+        // Optimization: Pre-allocate arrays, manual index management, cache invariants,
+        // and replace Math.max/min with inline conditionals for significant performance boost
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        const mkPos = mean + k;
+        const mkNeg = mean - k;
+
+        let cp = 0;
+        let cn = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            cp += xi - mkPos;
+            if (cp < 0) cp = 0;
+
+            cn += xi - mkNeg;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
