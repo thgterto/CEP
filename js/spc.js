@@ -37,13 +37,21 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) return { error: "Sem dados suficientes." };
+
+        // Optimization: Pre-allocated array avoids O(N) reallocation and spread syntax overhead
+        const ranges = new Array(len);
+        ranges[0] = 0;
+        let sumRanges = 0;
+        for (let i = 1; i < len; i++) {
+            const r = Math.abs(data[i] - data[i-1]);
+            ranges[i] = r;
+            sumRanges += r;
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanR = len > 1 ? sumRanges / (len - 1) : 0;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +64,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: ranges, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -65,16 +73,30 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+
+        // Optimization: Pre-allocated arrays and single-pass iteration avoids heavy .slice() and .map() garbage collection
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            let min = Infinity;
+            let max = -Infinity;
+            const start = i * n;
+            for (let j = 0; j < n; j++) {
+                const val = data[start + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+            xbars[i] = sum / n;
+            ranges[i] = max - min;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
-
-        const xdbar = SPC.mean(xbars);
-        const rbar = SPC.mean(ranges);
+        const xdbar = numGroups > 0 ? SPC.mean(xbars) : 0;
+        const rbar = numGroups > 0 ? SPC.mean(ranges) : 0;
 
         const A2 = SPC.CONSTANTS.A2[n];
         const D4 = SPC.CONSTANTS.D4[n];
@@ -93,16 +115,32 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+
+        // Optimization: Pre-allocated arrays and inline calculations replace .slice() and multiple .map() traversals
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            const start = i * n;
+            for (let j = 0; j < n; j++) {
+                sum += data[start + j];
+            }
+            const m = sum / n;
+            xbars[i] = m;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[start + j] - m;
+                sumSq += diff * diff;
+            }
+            sigmas[i] = Math.sqrt(sumSq / (n - 1));
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
-
-        const xdbar = SPC.mean(xbars);
-        const sbar = SPC.mean(sigmas);
+        const xdbar = numGroups > 0 ? SPC.mean(xbars) : 0;
+        const sbar = numGroups > 0 ? SPC.mean(sigmas) : 0;
 
         const A3 = SPC.CONSTANTS.A3[n];
         const B4 = SPC.CONSTANTS.B4[n];
@@ -124,18 +162,31 @@ const SPC = {
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const len = data.length;
+        // Optimization: Pre-allocating and manually tracking previous values avoids O(N) shift() overhead
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        let prevCp = 0;
+        let prevCn = 0;
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            let cp = xi - meanPlusK + prevCp;
+            if (cp < 0) cp = 0;
+
+            let cn = xi - meanMinusK + prevCn;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
+
+            prevCp = cp;
+            prevCn = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -146,22 +197,30 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
+        if (len === 0) return { error: "Sem dados suficientes." };
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        // Optimization: Pre-allocated arrays avoids .push() and .shift() reallocation overhead
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        let prevZ = mean;
+        const constSigma1 = lambda / (2 - lambda);
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + (1 - lambda) * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            const sigmaZ = std * Math.sqrt(constSigma1 * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
+            ucl[i] = mean + L * sigmaZ;
+            lcl[i] = mean - L * sigmaZ;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
