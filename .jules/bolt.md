@@ -1,0 +1,3 @@
+## 2026-05-01 - Optimizing Subgroup Data Calculation in SPC module
+**Learning:** Replacing intermediate array allocations via `slice()`, `map()`, and heavy array spreads like `Math.max(...g)` with pre-allocated arrays and inline, single-pass `for` loops in control chart math (e.g., `computeXbarR` and `computeXbarS`) yields significant measurable performance gains, notably reducing GC overhead and CPU cycles for math operations on nested grouped arrays.
+**Action:** When performing matrix or array subgroup aggregations on numeric data blocks, favor computing rolling statistics (`max`/`min`/`sum`) via direct iteration (`for (let j = 0; j < n; j++)`) and pre-allocated arrays (`new Array(numGroups)`) instead of slicing arrays and mapping high-level mathematical methods.
