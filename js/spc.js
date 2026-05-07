@@ -146,22 +146,43 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [{ type: 'EWMA', data: [], cl: 0, uclArray: [], lclArray: [], name: 'EWMA' }],
+                stats: { mean: 0, sigma: 0 }
+            };
+        }
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        let lastZ = mean;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        // Optimization: Cache constants to avoid recalculating in hot loop
+        const oneMinusLambda = 1 - lambda;
+        const lambdaFactor = lambda / (2 - lambda);
+        const oneMinusLambdaSq = oneMinusLambda * oneMinusLambda;
+
+        let currentPow = 1; // Tracks (1 - lambda)^(2 * i)
+
+        // Optimization: Pre-allocate arrays and use incremental multiplication instead of Math.pow
+        for (let i = 0; i < len; i++) {
+            currentPow *= oneMinusLambdaSq;
+
+            lastZ = lambda * data[i] + oneMinusLambda * lastZ;
+            z[i] = lastZ;
+
+            const sigmaZ = std * Math.sqrt(lambdaFactor * (1 - currentPow));
+            const LsigmaZ = L * sigmaZ;
+            ucl[i] = mean + LsigmaZ;
+            lcl[i] = mean - LsigmaZ;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
