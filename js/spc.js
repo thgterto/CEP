@@ -146,22 +146,42 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [{ type: 'EWMA', data: [], cl: 0, uclArray: [], lclArray: [], name: 'EWMA' }],
+                stats: { mean: 0, sigma: 0 }
+            };
+        }
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        // Optimization: Replace Math.pow(base, 2*(i+1)) with incremental multiplier avoiding O(N) allocation and GC
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        const base = 1 - lambda;
+        const baseSq = base * base;
+        let currentPow = 1;
+        const lambdaFactor = lambda / (2 - lambda);
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        let prevZ = mean;
+
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + base * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            currentPow *= baseSq;
+
+            const sigmaZ = std * Math.sqrt(lambdaFactor * (1 - currentPow));
+            const limitOffset = L * sigmaZ;
+            ucl[i] = mean + limitOffset;
+            lcl[i] = mean - limitOffset;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
