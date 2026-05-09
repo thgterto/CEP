@@ -37,26 +37,41 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'I', data: [], cl: NaN, ucl: NaN, lcl: NaN, name: 'Individual' },
+                    { type: 'MR', data: [0], cl: NaN, ucl: NaN, lcl: 0, name: 'Moving Range' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
+        }
+
+        // Optimization: Avoids temporary array creations, slice, and push overhead
+        const ranges = new Array(Math.max(0, len - 1));
+        for (let i = 1; i < len; i++) {
+            ranges[i - 1] = Math.abs(data[i] - data[i-1]);
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanR = ranges.length > 0 ? SPC.mean(ranges) : 0;
 
-        // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
         const lclX = meanX - 2.66 * meanR;
-
-        // Limits for MR Chart
         const uclR = 3.27 * meanR;
         const lclR = 0;
+
+        const mrData = new Array(len);
+        mrData[0] = 0;
+        for (let i = 0; i < ranges.length; i++) {
+            mrData[i + 1] = ranges[i];
+        }
 
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -65,13 +80,31 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+        if (numGroups === 0) return { error: "Dados insuficientes para formar um subgrupo." };
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
+        // Optimization: explicit for loops and pre-allocated arrays to avoid heavy
+        // array methods (slice, map, Math.max with spread operator)
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            const offset = i * n;
+            let sum = 0;
+            let min = data[offset];
+            let max = data[offset];
+
+            for (let j = 0; j < n; j++) {
+                const val = data[offset + j];
+                sum += val;
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            xbars[i] = sum / n;
+            ranges[i] = max - min;
+        }
 
         const xdbar = SPC.mean(xbars);
         const rbar = SPC.mean(ranges);
@@ -93,13 +126,31 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
-        }
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+        if (numGroups === 0) return { error: "Dados insuficientes para formar um subgrupo." };
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
+        // Optimization: explicit loops avoid slice overhead and inline stats calculation
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        for (let i = 0; i < numGroups; i++) {
+            const offset = i * n;
+            let sum = 0;
+
+            for (let j = 0; j < n; j++) {
+                sum += data[offset + j];
+            }
+            const mean = sum / n;
+            xbars[i] = mean;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[offset + j] - mean;
+                sumSq += diff * diff;
+            }
+            sigmas[i] = Math.sqrt(sumSq / (n - 1));
+        }
 
         const xdbar = SPC.mean(xbars);
         const sbar = SPC.mean(sigmas);
@@ -119,23 +170,44 @@ const SPC = {
     },
 
     computeCUSUM: (data, target = null, sigma = null) => {
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: 0, lcl: 0, name: 'CUSUM' }],
+                stats: { mean: 0, sigma: 0 }
+            };
+        }
+
         const mean = target !== null ? target : SPC.mean(data);
         const std = sigma !== null ? sigma : SPC.stdDev(data);
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
 
-        for (let i = 0; i < data.length; i++) {
+        // Optimization: Avoid arrays shift/push in O(N) by pre-allocating
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
+
+        let prevCP = 0;
+        let prevCN = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            let cp = xi - meanPlusK + prevCP;
+            if (cp < 0) cp = 0;
+
+            let cn = xi - meanMinusK + prevCN;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
+
+            prevCP = cp;
+            prevCN = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -146,22 +218,39 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [{ type: 'EWMA', data: [], cl: 0, uclArray: [], lclArray: [], name: 'EWMA' }],
+                stats: { mean: 0, sigma: 0 }
+            };
+        }
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        // Optimization: Pre-allocated arrays avoids unshift/push operations
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        const base = 1 - lambda;
+        const coeff = lambda / (2 - lambda);
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        let prevZ = mean;
+
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + base * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            // Strict equivalence to Math.pow semantics to maintain numerical stability
+            const sigmaZ = std * Math.sqrt(coeff * (1 - Math.pow(base, 2 * (i + 1))));
+            const limitDisp = L * sigmaZ;
+            ucl[i] = mean + limitDisp;
+            lcl[i] = mean - limitDisp;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
@@ -172,7 +261,19 @@ const SPC = {
     },
 
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        const len = data.length;
+        if (len === 0) {
+            return {
+                 charts: [
+                    { type: 'Run', data: [], cl: 0, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
+                ],
+                stats: { mean: 0, sigma: 0 }
+            };
+        }
+        // Optimization: Use TypedArray for much faster sorting of dense numbers
+        const sorted = new Float64Array(data).sort();
+        const median = sorted[Math.floor(len / 2)];
+
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
@@ -210,8 +311,8 @@ const SPC = {
     detectViolations: (chartData) => {
         // chartData: { data: [], ucl, lcl, cl, sigma? }
         const { data, ucl, lcl, cl } = chartData;
+        const len = data.length;
         const violations = [];
-        const sigma = (ucl - cl) / 3;
 
         let countR2 = 0;
         let signR2 = 0;
@@ -219,7 +320,7 @@ const SPC = {
         let countR3 = 0;
         let signR3 = 0;
 
-        for (let i = 0; i < data.length; i++) {
+        for (let i = 0; i < len; i++) {
             const v = data[i];
 
             // R1: 1 point beyond 3 sigma (UCL/LCL)
@@ -228,7 +329,8 @@ const SPC = {
             }
 
             // R2: 9 points on one side of CL
-            const sR2 = Math.sign(v - cl);
+            // Optimization: Inline ternary equivalent of Math.sign to bypass function call overhead
+            const sR2 = v > cl ? 1 : (v < cl ? -1 : 0);
             if (sR2 === signR2) {
                 countR2++;
             } else {
@@ -242,7 +344,7 @@ const SPC = {
             // R3: 6 points increasing or decreasing
             if (i > 0) {
                  const diff = v - data[i-1];
-                 const sR3 = Math.sign(diff);
+                 const sR3 = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
                  if (sR3 === signR3 && sR3 !== 0) {
                      countR3++;
                  } else {
