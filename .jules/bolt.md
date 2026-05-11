@@ -1,0 +1,3 @@
+## 2024-11-20 - Preserving `NaN` fallbacks in SPC range computations
+**Learning:** In SPC statistical calculations (e.g., `computeIMR`), single-element datasets (`len === 1`) lack sufficient data points to compute variance or range. When optimizing loops, ensure variance fallbacks (like `meanR`) evaluate to `NaN` (e.g., `len > 1 ? sum / (len - 1) : NaN`) instead of `0` to propagate mathematically correct undefined limits and match baseline assertion behaviors.
+**Action:** Always test optimizations against edge cases (`len === 0`, `len === 1`) using assertions (`assert.deepStrictEqual`) and strictly mirror the fallback values of the original implementation.
