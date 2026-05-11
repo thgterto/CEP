@@ -36,14 +36,35 @@ const SPC = {
 
     // --- Chart Calculations ---
 
+    // Optimization: Using pre-allocated array and single-pass loop avoids O(N) reallocation overhead
+    // and prevents Maximum call stack size exceeded with large datasets spread operations
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) {
+             return {
+                charts: [
+                    { type: 'I', data: [], cl: NaN, ucl: NaN, lcl: NaN, name: 'Individual' },
+                    { type: 'MR', data: [], cl: NaN, ucl: NaN, lcl: NaN, name: 'Moving Range' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const ranges = new Array(len);
+        ranges[0] = 0; // The moving range for the first element is 0
+        let sumRanges = 0;
+        let sumData = data[0];
+
+        for (let i = 1; i < len; i++) {
+            sumData += data[i];
+            const range = Math.abs(data[i] - data[i-1]);
+            ranges[i] = range;
+            sumRanges += range;
+        }
+
+        const meanX = sumData / len;
+        // The mean of moving ranges is calculated over (len - 1) pairs
+        const meanR = len > 1 ? sumRanges / (len - 1) : NaN;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +77,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: ranges, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
