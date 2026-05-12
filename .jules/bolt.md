@@ -1,0 +1,3 @@
+## 2024-05-12 - Optimized computeEWMA Performance
+**Learning:** In Node.js v22/V8, repeatedly calling `Math.pow(base, 2 * (i + 1))` inside hot statistical loops (like `computeEWMA`) represents a significant performance bottleneck due to exponentiation function overhead. Furthermore, dynamic array growth (`push`) and shifting (`shift`) on large datasets incurs major memory allocation overhead.
+**Action:** Replace dynamic arrays with pre-allocated ones (`new Array(len)`) and replace `Math.pow` calls with cached incremental multiplication (`currentPow *= base * base`) for exponent sequences. Ensure boundary cases (e.g. empty arrays) fallback correctly without throwing RangeErrors.

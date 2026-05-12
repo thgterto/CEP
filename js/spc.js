@@ -146,22 +146,42 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data ? data.length : 0;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'EWMA', data: [], cl: NaN, uclArray: [], lclArray: [], name: 'EWMA' }
+                ],
+                stats: { mean: NaN, sigma: SPC.stdDev([]) }
+            };
+        }
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        const oneMinusLambda = 1 - lambda;
+        const baseSq = oneMinusLambda * oneMinusLambda;
+        const factor = lambda / (2 - lambda);
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        // Accumulator for power evaluation; replaces Math.pow()
+        let currentPow = 1;
+        let prevZ = mean;
+
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + oneMinusLambda * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            currentPow *= baseSq;
+            const sigmaZ = std * Math.sqrt(factor * (1 - currentPow));
+            ucl[i] = mean + L * sigmaZ;
+            lcl[i] = mean - L * sigmaZ;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
