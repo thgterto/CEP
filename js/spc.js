@@ -119,23 +119,33 @@ const SPC = {
     },
 
     computeCUSUM: (data, target = null, sigma = null) => {
+        const len = data.length;
         const mean = target !== null ? target : SPC.mean(data);
         const std = sigma !== null ? sigma : SPC.stdDev(data);
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        const cpThreshold = mean + k;
+        const cnThreshold = mean - k;
+
+        let prevCp = 0;
+        let prevCn = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            const cpVal = xi - cpThreshold + prevCp;
+            const cnVal = xi - cnThreshold + prevCn;
+
+            prevCp = cpVal > 0 ? cpVal : 0;
+            prevCn = cnVal < 0 ? cnVal : 0;
+
+            cPos[i] = prevCp;
+            cNeg[i] = prevCn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -146,22 +156,32 @@ const SPC = {
     },
 
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        const oneMinusLambda = 1 - lambda;
+        const multiplier = lambda / (2 - lambda);
+        const baseSq = oneMinusLambda * oneMinusLambda;
+        let currentPow = 1;
+        let prevZ = mean;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + oneMinusLambda * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            currentPow *= baseSq;
+            const sigmaZ = std * Math.sqrt(multiplier * (1 - currentPow));
+            const margin = L * sigmaZ;
+            ucl[i] = mean + margin;
+            lcl[i] = mean - margin;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
@@ -172,7 +192,7 @@ const SPC = {
     },
 
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        const median = new Float64Array(data).sort()[Math.floor(data.length/2)];
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
@@ -262,7 +282,7 @@ const SPC = {
 
     computeCapability: (data, usl, lsl, sigmaST) => {
         const mu = SPC.mean(data);
-        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+        const sigmaLT = SPC.stdDev(data, true, mu); // Pass pre-calculated mean to stdDev to avoid recalculation
 
         const result = {
             mean: mu,
