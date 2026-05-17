@@ -37,13 +37,35 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'I', data: data, cl: NaN, ucl: NaN, lcl: NaN, name: 'Individual' },
+                    { type: 'MR', data: [], cl: NaN, ucl: NaN, lcl: NaN, name: 'Moving Range' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const mrData = new Array(len);
+        mrData[0] = 0;
+        let sumX = data[0];
+        let sumR = 0;
+
+        for (let i = 1; i < len; i++) {
+            const val = data[i];
+            sumX += val;
+
+            let diff = val - data[i-1];
+            if (diff < 0) diff = -diff;
+
+            mrData[i] = diff;
+            sumR += diff;
+        }
+
+        const meanX = sumX / len;
+        const meanR = len > 1 ? sumR / (len - 1) : NaN;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +78,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -65,16 +87,39 @@ const SPC = {
     computeXbarR: (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+        const xbars = new Array(numGroups);
+        const ranges = new Array(numGroups);
+
+        let sumXbars = 0;
+        let sumRanges = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            const startIndex = i * n;
+            let min = data[startIndex];
+            let max = data[startIndex];
+
+            for (let j = 0; j < n; j++) {
+                const val = data[startIndex + j];
+                sum += val;
+                if (val > max) max = val;
+                if (val < min) min = val;
+            }
+
+            const xbar = sum / n;
+            const range = max - min;
+
+            xbars[i] = xbar;
+            ranges[i] = range;
+
+            sumXbars += xbar;
+            sumRanges += range;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const ranges = subgroups.map(g => Math.max(...g) - Math.min(...g));
-
-        const xdbar = SPC.mean(xbars);
-        const rbar = SPC.mean(ranges);
+        const xdbar = numGroups > 0 ? sumXbars / numGroups : NaN;
+        const rbar = numGroups > 0 ? sumRanges / numGroups : NaN;
 
         const A2 = SPC.CONSTANTS.A2[n];
         const D4 = SPC.CONSTANTS.D4[n];
@@ -93,16 +138,39 @@ const SPC = {
     computeXbarS: (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
-        const subgroups = [];
-        for (let i = 0; i < data.length; i += n) {
-            if (i + n <= data.length) subgroups.push(data.slice(i, i + n));
+        const len = data.length;
+        const numGroups = Math.floor(len / n);
+        const xbars = new Array(numGroups);
+        const sigmas = new Array(numGroups);
+
+        let sumXbars = 0;
+        let sumSigmas = 0;
+
+        for (let i = 0; i < numGroups; i++) {
+            let sum = 0;
+            const startIndex = i * n;
+
+            for (let j = 0; j < n; j++) {
+                sum += data[startIndex + j];
+            }
+
+            const xbar = sum / n;
+            xbars[i] = xbar;
+            sumXbars += xbar;
+
+            let sumSq = 0;
+            for (let j = 0; j < n; j++) {
+                const diff = data[startIndex + j] - xbar;
+                sumSq += diff * diff;
+            }
+
+            const sigma = Math.sqrt(sumSq / (n - 1));
+            sigmas[i] = sigma;
+            sumSigmas += sigma;
         }
 
-        const xbars = subgroups.map(g => SPC.mean(g));
-        const sigmas = subgroups.map(g => SPC.stdDev(g, true));
-
-        const xdbar = SPC.mean(xbars);
-        const sbar = SPC.mean(sigmas);
+        const xdbar = numGroups > 0 ? sumXbars / numGroups : NaN;
+        const sbar = numGroups > 0 ? sumSigmas / numGroups : NaN;
 
         const A3 = SPC.CONSTANTS.A3[n];
         const B4 = SPC.CONSTANTS.B4[n];
@@ -120,22 +188,36 @@ const SPC = {
 
     computeCUSUM: (data, target = null, sigma = null) => {
         const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        // Important: standard deviation must always be computed around the sample data's mean, not target!
+        const sampleMean = SPC.mean(data);
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, sampleMean);
         const k = 0.5 * std;
         const h = 5 * std;
+        const len = data.length;
 
-        let cPos = [0];
-        let cNeg = [0];
+        let cPos = new Array(len);
+        let cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        let lastCp = 0;
+        let lastCn = 0;
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            let cp = xi - meanPlusK + lastCp;
+            if (cp < 0) cp = 0;
+
+            let cn = xi - meanMinusK + lastCn;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
+
+            lastCp = cp;
+            lastCn = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -149,19 +231,31 @@ const SPC = {
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const len = data.length;
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        const lambdaFactor = lambda / (2 - lambda);
+        const base = 1 - lambda;
+        const baseSq = base * base;
+        let currentPow = 1;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        let lastZ = mean;
+
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + base * lastZ;
+            z[i] = zi;
+            lastZ = zi;
+
+            currentPow *= baseSq;
+            const sigmaZ = std * Math.sqrt(lambdaFactor * (1 - currentPow));
+            const limitDist = L * sigmaZ;
+
+            ucl[i] = mean + limitDist;
+            lcl[i] = mean - limitDist;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
@@ -172,7 +266,7 @@ const SPC = {
     },
 
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        const median = new Float64Array(data).sort()[Math.floor(data.length / 2)];
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
