@@ -37,13 +37,20 @@ const SPC = {
     // --- Chart Calculations ---
 
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        const ranges = new Array(len === 0 ? 1 : len);
+        ranges[0] = 0; // Fallback correctly to 0 for strict equality
+
+        let sumR = 0;
+
+        for (let i = 1; i < len; i++) {
+            const diff = Math.abs(data[i] - data[i-1]);
+            ranges[i] = diff;
+            sumR += diff;
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanR = len > 1 ? sumR / (len - 1) : NaN;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +63,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: ranges, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -174,18 +181,31 @@ const SPC = {
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const len = data.length;
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        const mkPos = mean + k;
+        const mkNeg = mean - k;
+
+        let prevCp = 0;
+        let prevCn = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            let cp = xi - mkPos + prevCp;
+            if (cp < 0) cp = 0;
+
+            let cn = xi - mkNeg + prevCn;
+            if (cn > 0) cn = 0;
+
+            cPos[i] = cp;
+            cNeg[i] = cn;
+
+            prevCp = cp;
+            prevCn = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -199,19 +219,26 @@ const SPC = {
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const len = data.length;
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
         const L = 3;
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        let prevZ = mean;
+        const lambdaFactor = lambda / (2 - lambda);
+        const invLambda = 1 - lambda;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + invLambda * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            const sigmaZ = std * Math.sqrt(lambdaFactor * (1 - Math.pow(invLambda, 2 * (i + 1))));
+            const limitDispersion = L * sigmaZ;
+            ucl[i] = mean + limitDispersion;
+            lcl[i] = mean - limitDispersion;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
@@ -312,7 +339,7 @@ const SPC = {
 
     computeCapability: (data, usl, lsl, sigmaST) => {
         const mu = SPC.mean(data);
-        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+        const sigmaLT = SPC.stdDev(data, true, mu); // Total Standard Deviation
 
         const result = {
             mean: mu,
