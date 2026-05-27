@@ -36,14 +36,29 @@ const SPC = {
 
     // --- Chart Calculations ---
 
+    // Optimization: Replacing array operations with single-pass for-loop and pre-allocated array for MR chart
+    // drastically improves performance and prevents O(N) memory allocations, especially for large datasets.
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        const mrData = len > 0 ? new Array(len) : [0];
+        if (len > 0) {
+            mrData[0] = 0;
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        let sumX = 0;
+        let sumR = 0;
+
+        for (let i = 0; i < len; i++) {
+            sumX += data[i];
+            if (i > 0) {
+                const range = Math.abs(data[i] - data[i-1]);
+                mrData[i] = range;
+                sumR += range;
+            }
+        }
+
+        const meanX = len > 0 ? sumX / len : NaN;
+        const meanR = len > 1 ? sumR / (len - 1) : NaN;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +71,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
