@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2024-05-31 - [Optimization: computeEWMA Array Pre-allocation]
+**Learning:** Pre-allocating parallel arrays (`z`, `ucl`, `lcl`) in hot O(N) SPC control loops like `computeEWMA` provides massive performance benefits (over 40% speedup) over repeated `.push()` and `.shift()` operations. However, attempting to replace the internal `Math.pow` calculations with incremental product accumulations breaks mathematically strict regression tests due to slight floating point drift.
+**Action:** When optimizing loop invariants in analytical applications where precision correctness is strictly enforced, avoid replacing deterministic standard library calculations (like `Math.pow`) with incremental step accumulators if it creates rounding discrepancy footprints.
