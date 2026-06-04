@@ -36,14 +36,31 @@ const SPC = {
 
     // --- Chart Calculations ---
 
+    // Optimization: Replaced push and spread operators with pre-allocated array and inline loop.
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'I', data: [], cl: NaN, ucl: NaN, lcl: NaN, name: 'Individual' },
+                    { type: 'MR', data: [], cl: NaN, ucl: NaN, lcl: 0, name: 'Moving Range' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
+        }
+
+        const mrData = new Array(len);
+        mrData[0] = 0; // Baseline fallback for the first element
+
+        let sumR = 0;
+        for (let i = 1; i < len; i++) {
+            const r = Math.abs(data[i] - data[i - 1]);
+            mrData[i] = r;
+            sumR += r;
         }
 
         const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        const meanR = len > 1 ? sumR / (len - 1) : NaN; // Correct fallback for single-element arrays
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +73,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
@@ -168,24 +185,47 @@ const SPC = {
         };
     },
 
+    // Optimization: Replaced push/shift with pre-allocated arrays, cached mean +- k, and inline conditionals instead of Math.max/min.
     computeCUSUM: (data, target = null, sigma = null) => {
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'CUSUM', data: [], data2: [], cl: 0, ucl: NaN, lcl: NaN, name: 'CUSUM' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
+        }
+
+        const dataMean = SPC.mean(data);
+        const mean = target !== null ? target : dataMean;
+        // Optimization learning: Compute stdDev around the sample data's mean, not target mean.
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, dataMean);
         const k = 0.5 * std;
         const h = 5 * std;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
+
+        let prevCp = 0;
+        let prevCn = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+
+            const cpVal = xi - meanPlusK + prevCp;
+            const cp = cpVal > 0 ? cpVal : 0;
+            cPos[i] = cp;
+            prevCp = cp;
+
+            const cnVal = xi - meanMinusK + prevCn;
+            const cn = cnVal < 0 ? cnVal : 0;
+            cNeg[i] = cn;
+            prevCn = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
@@ -195,23 +235,43 @@ const SPC = {
         };
     },
 
+    // Optimization: Replaced push/shift with pre-allocated arrays and cached repetitive invariant math values.
+    // Note: We maintain Math.pow precision to avoid regression test failures.
     computeEWMA: (data, lambda = 0.2) => {
+        const len = data.length;
+        if (len === 0) {
+            return {
+                charts: [
+                    { type: 'EWMA', data: [], cl: NaN, uclArray: [], lclArray: [], name: 'EWMA' }
+                ],
+                stats: { mean: NaN, sigma: NaN }
+            };
+        }
+
         const mean = SPC.mean(data);
         const std = SPC.stdDev(data, true, mean);
 
-        const z = [mean]; // Start with process mean
-        const ucl = [], lcl = [];
+        const z = new Array(len);
+        const ucl = new Array(len);
+        const lcl = new Array(len);
+
         const L = 3;
+        const oneMinusLambda = 1 - lambda;
+        const sigmaZFactor = std * Math.sqrt(lambda / (2 - lambda));
 
-        for (let i = 0; i < data.length; i++) {
-            const zi = lambda * data[i] + (1 - lambda) * z[i];
-            z.push(zi);
+        let prevZ = mean;
 
-            const sigmaZ = std * Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
-            ucl.push(mean + L * sigmaZ);
-            lcl.push(mean - L * sigmaZ);
+        for (let i = 0; i < len; i++) {
+            const zi = lambda * data[i] + oneMinusLambda * prevZ;
+            z[i] = zi;
+            prevZ = zi;
+
+            const sigmaZ = sigmaZFactor * Math.sqrt(1 - Math.pow(oneMinusLambda, 2 * (i + 1)));
+            const limitSpread = L * sigmaZ;
+
+            ucl[i] = mean + limitSpread;
+            lcl[i] = mean - limitSpread;
         }
-        z.shift(); // remove initial mean, alignment
 
         return {
             charts: [
@@ -221,8 +281,13 @@ const SPC = {
         };
     },
 
+    // Optimization: Replaced data.slice().sort() with Float64Array for faster sorting without mutating original array.
     computeRunChart: (data) => {
-        const median = data.slice().sort((a,b) => a-b)[Math.floor(data.length/2)];
+        const len = data.length;
+        const median = len > 0
+            ? new Float64Array(data).sort()[Math.floor(len / 2)]
+            : NaN;
+
         return {
              charts: [
                 { type: 'Run', data: data, cl: median, ucl: null, lcl: null, name: 'Run Chart (Mediana)' }
