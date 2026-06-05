@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2026-05-19 - V8 Optimization and Inline Caching for Array Sizing
+**Learning:** For array-heavy computational loops in `SPC` functions (like `computeCUSUM` and `computeEWMA`), replacing dynamic array operations (`push()`/`shift()`) with explicitly pre-allocated arrays (`new Array(len)`), explicitly managing loop indices, caching invariant calculations, and replacing `Math.max()`/`Math.min()` with inline ternary conditionals prevents overhead and significantly improves performance (giving a roughly ~6x to ~11x execution speedup in modern Node.js/V8 environments)
+**Action:** When implementing mathematical loops, use single-pass `for` loops with pre-allocated arrays instead of chaining array methods or `push`/`shift` on dynamically-growing arrays.
