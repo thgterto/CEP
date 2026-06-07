@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2024-06-25 - Fallback handling for strict equality in statistical chart optimizations
+**Learning:** When optimizing array access patterns for empty inputs (`len === 0`), standard JS baseline out-of-bounds indexing (`array[0]`) implicitly resolves to `undefined`. If you manually initialize fallback bounds, setting them to `NaN` will fail strict object comparison assertions against baseline data because the original produced `undefined`. Also, in CUSUM edge cases, a target's standard deviation defaults strictly to `-0` due to internal float division characteristics (`Infinity` resolution).
+**Action:** When creating explicit bounds or loop initializers in mathematical fallbacks, meticulously match the original variable resolutions (e.g. `undefined` vs `NaN`, `-0` vs `0`) to survive `assert.deepStrictEqual()`.
