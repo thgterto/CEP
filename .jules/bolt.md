@@ -1,3 +1,7 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+
+## 2024-05-18 - Replacing Spread Syntax with Pre-Allocated Arrays in SPC
+**Learning:** In V8, using the array spread operator (`[0, ...ranges]`) on large datasets (100k+ elements) can trigger a fatal `RangeError: Maximum call stack size exceeded`. Additionally, combining multiple array operations (`ranges.push`, `mean(data)`, `mean(ranges)`) causes massive GC overhead and N+1 loop behavior. Fusing operations into a single-pass `for` loop and using `new Array(len)` avoids this completely.
+**Action:** When working with statistical control charts or time-series logic that processes unbounded arrays, never use `...spread`. Pre-allocate fixed-size arrays using `new Array(len)` and explicitly assign indices to avoid stack overflows and achieve O(1) allocation speedups. Always hardcode empty (`[]`) and single-element (`[val]`) mathematical fallbacks to strictly match baseline behavior for edge cases.
