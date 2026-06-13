@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2026-06-13 - O(N) Iteration vs Array Methods
+**Learning:** Replacing dynamic array `push()`, multiple array traversals via custom helpers (like `SPC.mean`), and the array spread operator (`[0, ...ranges]`) with a single-pass inline loop and a pre-allocated array (`new Array(len)`) yields a massive performance increase (~11x speedup) for fundamental statistical calculations like `computeIMR`.
+**Action:** When working in hot statistical paths on arrays of variable lengths, prioritize single-pass loops where multiple operations (e.g. sum computation and range computation) can be batched together to avoid excessive garbage collection and array spreading operations. Ensure fallbacks like array length bounds strictly match original logic to prevent equality assertion failures.
