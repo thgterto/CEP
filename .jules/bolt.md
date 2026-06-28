@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2026-05-19 - Strict NaN Propagation in Math Replacements
+**Learning:** When replacing native functions like `Math.max(0, val)` or `Math.min(0, val)` with inline conditionals for micro-optimization in statistical loops (e.g., CUSUM), failing to handle `NaN` inputs correctly breaks mathematical correctness. `Math.max(0, NaN)` evaluates to `NaN`, but a naive ternary `val > 0 ? val : 0` evaluates to `0` when `val` is `NaN`, causing strict equality regressions.
+**Action:** When manually expanding native Math functions to inline ternary logic, always add explicit fallbacks to ensure `NaN` propagation (e.g., `val > 0 ? val : (val !== val ? NaN : 0)`) to preserve mathematically identical behavior to the baseline implementation.
