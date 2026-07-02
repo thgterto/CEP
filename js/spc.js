@@ -36,14 +36,39 @@ const SPC = {
 
     // --- Chart Calculations ---
 
+    // Optimization: Replacing array methods (push, spread operator) and multiple iterations (SPC.mean)
+    // with a single-pass loop and pre-allocated arrays to significantly improve performance and avoid GC overhead.
+    // Early return for empty arrays handles correct structural fallback.
     computeIMR: (data) => {
-        const ranges = [];
-        for (let i = 1; i < data.length; i++) {
-            ranges.push(Math.abs(data[i] - data[i-1]));
+        const len = data.length;
+        if (len === 0) {
+             const meanX = SPC.mean(data); // returns NaN
+             const meanR = SPC.mean([]); // returns NaN
+             return {
+                 charts: [
+                     { type: 'I', data: data, cl: meanX, ucl: NaN, lcl: NaN, name: 'Individual' },
+                     { type: 'MR', data: [0], cl: meanR, ucl: NaN, lcl: 0, name: 'Moving Range' }
+                 ],
+                 stats: { mean: meanX, sigma: NaN }
+             };
         }
 
-        const meanX = SPC.mean(data);
-        const meanR = SPC.mean(ranges);
+        let sumX = data[0];
+        let sumR = 0;
+
+        // Ensure mrData strictly has initial 0
+        const mrData = new Array(len);
+        mrData[0] = 0;
+
+        for (let i = 1; i < len; i++) {
+            sumX += data[i];
+            const range = Math.abs(data[i] - data[i-1]);
+            sumR += range;
+            mrData[i] = range;
+        }
+
+        const meanX = sumX / len;
+        const meanR = len > 1 ? sumR / (len - 1) : NaN;
 
         // Limits for I Chart
         const uclX = meanX + 2.66 * meanR;
@@ -56,7 +81,7 @@ const SPC = {
         return {
             charts: [
                 { type: 'I', data: data, cl: meanX, ucl: uclX, lcl: lclX, name: 'Individual' },
-                { type: 'MR', data: [0, ...ranges], cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
+                { type: 'MR', data: mrData, cl: meanR, ucl: uclR, lcl: lclR, name: 'Moving Range' }
             ],
             stats: { mean: meanX, sigma: meanR / 1.128 } // d2 for n=2 is 1.128
         };
