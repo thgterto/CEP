@@ -169,23 +169,39 @@ const SPC = {
     },
 
     computeCUSUM: (data, target = null, sigma = null) => {
+        const len = data.length;
+        if (len === 0) {
+            const mean = target !== null ? target : SPC.mean(data);
+            const std = sigma !== null ? sigma : SPC.stdDev(data);
+            const h = 5 * std;
+            return {
+                charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }],
+                stats: { mean, sigma: std }
+            };
+        }
+
         const mean = target !== null ? target : SPC.mean(data);
         const std = sigma !== null ? sigma : SPC.stdDev(data);
         const k = 0.5 * std;
         const h = 5 * std;
+        const meanPlusK = mean + k;
+        const meanMinusK = mean - k;
 
-        let cPos = [0];
-        let cNeg = [0];
+        const cPos = new Array(len);
+        const cNeg = new Array(len);
 
-        for (let i = 0; i < data.length; i++) {
+        let prevPos = 0;
+        let prevNeg = 0;
+
+        for (let i = 0; i < len; i++) {
             const xi = data[i];
-            const cp = Math.max(0, xi - (mean + k) + cPos[i]);
-            const cn = Math.min(0, xi - (mean - k) + cNeg[i]);
-            cPos.push(cp);
-            cNeg.push(cn);
+            const cp = Math.max(0, xi - meanPlusK + prevPos);
+            const cn = Math.min(0, xi - meanMinusK + prevNeg);
+            cPos[i] = cp;
+            cNeg[i] = cn;
+            prevPos = cp;
+            prevNeg = cn;
         }
-        cPos.shift(); // remove initial 0
-        cNeg.shift();
 
         return {
             charts: [
