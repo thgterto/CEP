@@ -304,6 +304,7 @@ const SPC = {
         // chartData: { data: [], ucl, lcl, cl, sigma? }
         const { data, ucl, lcl, cl } = chartData;
         const violations = [];
+        const len = data.length;
         const sigma = (ucl - cl) / 3;
 
         let countR2 = 0;
@@ -312,7 +313,9 @@ const SPC = {
         let countR3 = 0;
         let signR3 = 0;
 
-        for (let i = 0; i < data.length; i++) {
+        let prevV = len > 0 ? data[0] : 0;
+
+        for (let i = 0; i < len; i++) {
             const v = data[i];
 
             // R1: 1 point beyond 3 sigma (UCL/LCL)
@@ -321,7 +324,10 @@ const SPC = {
             }
 
             // R2: 9 points on one side of CL
-            const sR2 = Math.sign(v - cl);
+            const diffCL = v - cl;
+            // Handle NaN edge case similarly to Math.sign(NaN)
+            const sR2 = diffCL > 0 ? 1 : (diffCL < 0 ? -1 : (Number.isNaN(diffCL) ? NaN : 0));
+
             if (sR2 === signR2) {
                 countR2++;
             } else {
@@ -334,8 +340,9 @@ const SPC = {
 
             // R3: 6 points increasing or decreasing
             if (i > 0) {
-                 const diff = v - data[i-1];
-                 const sR3 = Math.sign(diff);
+                 const diff = v - prevV;
+                 const sR3 = diff > 0 ? 1 : (diff < 0 ? -1 : (Number.isNaN(diff) ? NaN : 0));
+
                  if (sR3 === signR3 && sR3 !== 0) {
                      countR3++;
                  } else {
@@ -346,6 +353,7 @@ const SPC = {
                      violations.push({ index: i, value: v, rule: "R3", text: "6+ pontos em tendência" });
                  }
             }
+            prevV = v;
         }
 
         return violations;
