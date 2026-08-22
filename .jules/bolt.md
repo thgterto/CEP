@@ -1,3 +1,6 @@
 ## 2026-05-19 - Avoiding Committing Binary Artifacts During Refactoring
 **Learning:** When running frontend verification scripts (like Playwright with `page.screenshot()`), large binary artifacts (e.g., `verification.png`) can be generated and accidentally staged or committed, cluttering version control.
 **Action:** Always perform a workspace cleanup and check `git status` to ensure generated scratchpad scripts, logs, and binary files are explicitly removed before staging changes and submitting.
+## 2026-08-22 - EWMA Optimization without Precision Loss
+**Learning:** In Node.js v22, replacing repeated `Math.pow()` calls inside hot statistical loops (like `computeEWMA`) with cached incremental multiplication can introduce floating-point precision discrepancies that break strict equality testing. However, replacing `Array.prototype.push()` and `.shift()` with pre-allocated arrays (`new Array(len)`) and hoisting standard loop invariants (`lambda / (2 - lambda)`) provides a ~40% execution speedup with zero precision loss.
+**Action:** When micro-optimizing statistical calculations, prioritize removing O(N) array operations (like `.shift()`) and garbage-collection heavy allocations before altering mathematical patterns that risk floating-point variations.
