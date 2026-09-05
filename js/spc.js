@@ -195,8 +195,10 @@ const SPC = {
     computeCUSUM: (data, target = null, sigma = null) => {
         const len = data.length;
         if (len === 0) {
-            const mean = target !== null ? target : SPC.mean(data);
-            const std = sigma !== null ? sigma : SPC.stdDev(data);
+            const actualMean = target === null || sigma === null ? SPC.mean(data) : NaN;
+            const mean = target !== null ? target : actualMean;
+            // Optimization: Pass pre-calculated actualMean to stdDev to prevent redundant array iteration
+            const std = sigma !== null ? sigma : SPC.stdDev(data, true, actualMean);
             const h = 5 * std;
             return {
                 charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }],
@@ -204,8 +206,10 @@ const SPC = {
             };
         }
 
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const actualMean = target === null || sigma === null ? SPC.mean(data) : NaN;
+        const mean = target !== null ? target : actualMean;
+        // Optimization: Pass pre-calculated actualMean to stdDev to prevent redundant array iteration
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, actualMean);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
