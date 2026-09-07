@@ -377,9 +377,10 @@ const SPC = {
 
     // --- Capability ---
 
+    // Optimization: Pass the pre-computed mean to SPC.stdDev to avoid redundant array iteration
     computeCapability: (data, usl, lsl, sigmaST) => {
         const mu = SPC.mean(data);
-        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+        const sigmaLT = SPC.stdDev(data, true, mu); // Total Standard Deviation
 
         const result = {
             mean: mu,
