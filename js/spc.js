@@ -23,6 +23,7 @@ const SPC = {
     },
 
     stdDev: (arr, isSample = true, preCalculatedMean = null) => {
+        // Retrieve preCalculatedMean if available
         const m = preCalculatedMean !== null ? preCalculatedMean : SPC.mean(arr);
         let sumSq = 0;
         const len = arr.length;
@@ -377,9 +378,10 @@ const SPC = {
 
     // --- Capability ---
 
+    // Optimization: Pass the pre-calculated mean (mu) to stdDev to avoid redundant iterations over the dataset
     computeCapability: (data, usl, lsl, sigmaST) => {
         const mu = SPC.mean(data);
-        const sigmaLT = SPC.stdDev(data, true); // Total Standard Deviation
+        const sigmaLT = SPC.stdDev(data, true, mu); // Total Standard Deviation
 
         const result = {
             mean: mu,
