@@ -38,6 +38,7 @@ const SPC = {
 
     // Optimization: Replacing array operations and spread syntax ([0, ...ranges]) with a single-pass loop
     // and pre-allocated array yields ~6x speedup and vastly reduces garbage collection overhead.
+    // Further optimization: Cache the previous array value (`prev`) inside the loop to avoid redundant `data[i-1]` array lookups.
     computeIMR: (data) => {
         const len = data.length;
         const rangesLen = Math.max(0, len - 1);
@@ -56,13 +57,15 @@ const SPC = {
             mrData[0] = 0;
 
             sumX = data[0];
+            let prev = data[0]; // cache previous value
             for (let i = 1; i < len; i++) {
                 const val = data[i];
                 sumX += val;
 
-                const r = Math.abs(val - data[i-1]);
+                const r = Math.abs(val - prev);
                 sumR += r;
                 mrData[i] = r;
+                prev = val;
             }
         }
 
