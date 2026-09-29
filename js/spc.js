@@ -142,7 +142,7 @@ const SPC = {
     },
 
     computeXbarS: (data, n = 5) => {
-         if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
+        if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
         const len = data.length;
         const numGroups = Math.floor(len / n);
@@ -153,21 +153,21 @@ const SPC = {
         let sumXbars = 0;
         let sumSigmas = 0;
 
+        // Optimization: Accumulating sum and sumSq in a single-pass loop per subgroup improves performance
+        // by avoiding a second iteration over subgroup elements.
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
             let sum = 0;
+            let sumSq = 0;
 
             for (let j = 0; j < n; j++) {
-                sum += data[start + j];
+                const val = data[start + j];
+                sum += val;
+                sumSq += val * val;
             }
             const mean = sum / n;
-
-            let sumSq = 0;
-            for (let j = 0; j < n; j++) {
-                const diff = data[start + j] - mean;
-                sumSq += diff * diff;
-            }
-            const sigma = Math.sqrt(sumSq / (n - 1));
+            const variance = Math.max(0, (sumSq - n * mean * mean) / (n - 1));
+            const sigma = Math.sqrt(variance);
 
             xbars[i] = mean;
             sigmas[i] = sigma;
