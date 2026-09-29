@@ -156,18 +156,18 @@ const SPC = {
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
             let sum = 0;
+            let sumSq = 0;
 
             for (let j = 0; j < n; j++) {
-                sum += data[start + j];
+                const val = data[start + j];
+                sum += val;
+                sumSq += val * val;
             }
             const mean = sum / n;
 
-            let sumSq = 0;
-            for (let j = 0; j < n; j++) {
-                const diff = data[start + j] - mean;
-                sumSq += diff * diff;
-            }
-            const sigma = Math.sqrt(sumSq / (n - 1));
+            // Optimization: Single-pass formula for variance.
+            // Math.max is used to prevent negative values from floating point precision drifts.
+            const sigma = Math.sqrt(Math.max(0, (sumSq - n * mean * mean) / (n - 1)));
 
             xbars[i] = mean;
             sigmas[i] = sigma;
