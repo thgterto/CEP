@@ -4,3 +4,7 @@
 ## 2026-05-19 - Safe Refactoring in EWMA
 **Learning:** In Node.js v22, avoiding `Array.prototype.shift()` (an O(N) operation) and utilizing pre-allocated arrays along with hoisted loop-invariant math operations (like `1 - lambda`) inside hot statistical loops yields over 2x speedup on large datasets.
 **Action:** When optimizing loop-heavy array manipulations in statistical algorithms (e.g. SPC), prioritize static allocation and scalar state-tracking (e.g., `prevZ`) over dynamic structural mutations (`push`, `shift`), while preserving native functions like `Math.pow` inside the loop to avoid floating point drift.
+
+## 2026-09-27 - Reusing Pre-Calculated Mean in CUSUM
+**Learning:** In `SPC.computeCUSUM`, passing `target === null ? mean : null` as the pre-calculated dataset mean argument to `SPC.stdDev(data, true, ...)` eliminates an unnecessary array traversal while preserving standard deviation correctness when a custom `target` parameter is supplied.
+**Action:** When calling `SPC.stdDev` from higher-level SPC functions, pass the pre-calculated dataset mean whenever available instead of letting `stdDev` re-compute it from scratch.

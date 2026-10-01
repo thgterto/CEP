@@ -197,7 +197,7 @@ const SPC = {
         const len = data.length;
         if (len === 0) {
             const mean = target !== null ? target : SPC.mean(data);
-            const std = sigma !== null ? sigma : SPC.stdDev(data);
+            const std = sigma !== null ? sigma : SPC.stdDev(data, true, target === null ? mean : null);
             const h = 5 * std;
             return {
                 charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }],
@@ -206,7 +206,8 @@ const SPC = {
         }
 
         const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        // Optimization: Pass pre-calculated dataset mean to SPC.stdDev to avoid redundant array iteration
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, target === null ? mean : null);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
