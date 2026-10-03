@@ -57,13 +57,16 @@ const SPC = {
             mrData[0] = 0;
 
             sumX = data[0];
+            let prev = data[0];
             for (let i = 1; i < len; i++) {
                 const val = data[i];
                 sumX += val;
 
-                const r = Math.abs(val - data[i-1]);
+                // Optimization: Cache previous value to avoid redundant property lookups
+                const r = Math.abs(val - prev);
                 sumR += r;
                 mrData[i] = r;
+                prev = val;
             }
         }
 
