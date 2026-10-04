@@ -22,7 +22,7 @@ const SPC = {
         return sum / len;
     },
 
-    // stdDev accepts preCalculatedMean as optional 3rd argument
+    // stdDev accepts preCalculatedMean as optional 3rd argument (defaults to isSample = true)
     stdDev: (arr, isSample = true, preCalculatedMean = null) => {
         const m = preCalculatedMean !== null ? preCalculatedMean : SPC.mean(arr);
         let sumSq = 0;
@@ -193,6 +193,7 @@ const SPC = {
         };
     },
 
+    // Optimization: Passing pre-calculated dataMean to SPC.stdDev avoids redundant array iteration during standard deviation calculation.
     computeCUSUM: (data, target = null, sigma = null) => {
         const len = data.length;
         if (len === 0) {
@@ -205,8 +206,9 @@ const SPC = {
             };
         }
 
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const dataMean = (target === null || sigma === null) ? SPC.mean(data) : 0;
+        const mean = target !== null ? target : dataMean;
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, dataMean);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
