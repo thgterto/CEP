@@ -4,3 +4,6 @@
 ## 2026-05-19 - Safe Refactoring in EWMA
 **Learning:** In Node.js v22, avoiding `Array.prototype.shift()` (an O(N) operation) and utilizing pre-allocated arrays along with hoisted loop-invariant math operations (like `1 - lambda`) inside hot statistical loops yields over 2x speedup on large datasets.
 **Action:** When optimizing loop-heavy array manipulations in statistical algorithms (e.g. SPC), prioritize static allocation and scalar state-tracking (e.g., `prevZ`) over dynamic structural mutations (`push`, `shift`), while preserving native functions like `Math.pow` inside the loop to avoid floating point drift.
+## 2024-05-19 - Loop Unrolling vs V8 JIT Optimization
+**Learning:** When optimizing array-processing loops that require comparing the current element to the previous one (e.g., SPC anomaly detection), manually peeling the first iteration (processing `data[0]` before the loop and starting the loop at `i = 1`) eliminates the need for an `if (i > 0)` branch check on every iteration. Additionally, caching `prev = v` avoids O(N) array index lookups `data[i-1]`.
+**Action:** When refactoring hot loops, prioritize branch elimination (like peeling the first iteration) and scalar value caching over naive array index lookups to guarantee speedups across diverse datasets without introducing edge-case bugs.
