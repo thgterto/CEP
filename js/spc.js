@@ -337,6 +337,8 @@ const SPC = {
         let countR3 = 0;
         let signR3 = 0;
 
+        let prev = undefined; // Optimization: Cache previous value to avoid redundant array lookups
+
         for (let i = 0; i < data.length; i++) {
             const v = data[i];
 
@@ -359,7 +361,7 @@ const SPC = {
 
             // R3: 6 points increasing or decreasing
             if (i > 0) {
-                 const diff = v - data[i-1];
+                 const diff = v - prev;
                  const sR3 = Math.sign(diff);
                  if (sR3 === signR3 && sR3 !== 0) {
                      countR3++;
@@ -371,6 +373,7 @@ const SPC = {
                      violations.push({ index: i, value: v, rule: "R3", text: "6+ pontos em tendência" });
                  }
             }
+            prev = v;
         }
 
         return violations;
