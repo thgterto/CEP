@@ -205,8 +205,10 @@ const SPC = {
             };
         }
 
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        // Optimization: conditionally calculate datasetMean once when needed to avoid redundant SPC.mean iterations inside SPC.stdDev
+        const datasetMean = (target === null || sigma === null) ? SPC.mean(data) : null;
+        const mean = target !== null ? target : datasetMean;
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, datasetMean);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
