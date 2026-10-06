@@ -4,3 +4,6 @@
 ## 2026-05-19 - Safe Refactoring in EWMA
 **Learning:** In Node.js v22, avoiding `Array.prototype.shift()` (an O(N) operation) and utilizing pre-allocated arrays along with hoisted loop-invariant math operations (like `1 - lambda`) inside hot statistical loops yields over 2x speedup on large datasets.
 **Action:** When optimizing loop-heavy array manipulations in statistical algorithms (e.g. SPC), prioritize static allocation and scalar state-tracking (e.g., `prevZ`) over dynamic structural mutations (`push`, `shift`), while preserving native functions like `Math.pow` inside the loop to avoid floating point drift.
+## 2026-10-06 - Safe Loop Optimization
+**Learning:** Caching array access (e.g., `prev = data[i-1]`) in hot statistical loops avoids redundant property lookups and yields massive speedups in engines like V8. However, trying to combine it with micro-optimizations like replacing `Math.sign` with inline ternary logic yields negligible or negative returns and complicates the execution plan needlessly.
+**Action:** Focus on the single most impactful structural loop optimization (like avoiding property lookups) and do not bundle multiple distinct micro-optimizations into a single plan step, strictly following the Specificity Rule.
