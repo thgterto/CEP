@@ -22,7 +22,7 @@ const SPC = {
         return sum / len;
     },
 
-    // stdDev accepts preCalculatedMean as optional 3rd argument
+    // stdDev accepts preCalculatedMean as optional 3rd argument (default isSample = true)
     stdDev: (arr, isSample = true, preCalculatedMean = null) => {
         const m = preCalculatedMean !== null ? preCalculatedMean : SPC.mean(arr);
         let sumSq = 0;
@@ -193,11 +193,13 @@ const SPC = {
         };
     },
 
+    // Optimization: Passing pre-calculated mean 'target === null ? mean : null' to SPC.stdDev avoids
+    // redundant array iteration when mean was already computed for target === null.
     computeCUSUM: (data, target = null, sigma = null) => {
         const len = data.length;
         if (len === 0) {
             const mean = target !== null ? target : SPC.mean(data);
-            const std = sigma !== null ? sigma : SPC.stdDev(data);
+            const std = sigma !== null ? sigma : SPC.stdDev(data, true, target === null ? mean : null);
             const h = 5 * std;
             return {
                 charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }],
@@ -206,7 +208,7 @@ const SPC = {
         }
 
         const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, target === null ? mean : null);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
