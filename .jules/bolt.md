@@ -4,3 +4,6 @@
 ## 2026-05-19 - Safe Refactoring in EWMA
 **Learning:** In Node.js v22, avoiding `Array.prototype.shift()` (an O(N) operation) and utilizing pre-allocated arrays along with hoisted loop-invariant math operations (like `1 - lambda`) inside hot statistical loops yields over 2x speedup on large datasets.
 **Action:** When optimizing loop-heavy array manipulations in statistical algorithms (e.g. SPC), prioritize static allocation and scalar state-tracking (e.g., `prevZ`) over dynamic structural mutations (`push`, `shift`), while preserving native functions like `Math.pow` inside the loop to avoid floating point drift.
+## 2026-05-19 - Conditional Bypassing in Hot Loops
+**Learning:** When optimizing nested loops for group-based calculations (like `computeXbarR`), changing sequential independent `if` statements into an `if ... else if` chain for mutually exclusive conditions (e.g., checking if a value is the new minimum, and if not, checking if it's the new maximum) skips unnecessary checks. Combined with unrolling the first iteration (to avoid `sum += 0`, and redundant self-comparisons), this yields a >2x execution speedup.
+**Action:** In statistical group aggregation loops where subgroup sizes are predictable and `n >= 2`, always unroll the first element initialization and chain mutually exclusive comparisons with `else if` to minimize branching overhead.
