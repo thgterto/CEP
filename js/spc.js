@@ -193,11 +193,13 @@ const SPC = {
         };
     },
 
+    // Optimization: Passing pre-calculated dataset mean 'dataMean' to SPC.stdDev avoids redundant array iteration
     computeCUSUM: (data, target = null, sigma = null) => {
         const len = data.length;
+        const dataMean = (target === null || sigma === null) ? SPC.mean(data) : null;
         if (len === 0) {
-            const mean = target !== null ? target : SPC.mean(data);
-            const std = sigma !== null ? sigma : SPC.stdDev(data);
+            const mean = target !== null ? target : dataMean;
+            const std = sigma !== null ? sigma : SPC.stdDev(data, true, dataMean);
             const h = 5 * std;
             return {
                 charts: [{ type: 'CUSUM', data: [], data2: [], cl: 0, ucl: h, lcl: -h, name: 'CUSUM' }],
@@ -205,8 +207,8 @@ const SPC = {
             };
         }
 
-        const mean = target !== null ? target : SPC.mean(data);
-        const std = sigma !== null ? sigma : SPC.stdDev(data);
+        const mean = target !== null ? target : dataMean;
+        const std = sigma !== null ? sigma : SPC.stdDev(data, true, dataMean);
         const k = 0.5 * std;
         const h = 5 * std;
         const meanPlusK = mean + k;
