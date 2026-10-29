@@ -7,3 +7,6 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+## 2026-05-19 - Conditional Mutually Exclusive Loop Checks
+**Learning:** In statistical algorithms that compute both `min` and `max` using a single pass, `val < min` and `val > max` are mathematically mutually exclusive (assuming `min <= max`).
+**Action:** When finding extrema in loops, always use `else if` for the maximum check instead of a separate `if` block to avoid redundant conditional evaluations and slightly speed up large iterations.
