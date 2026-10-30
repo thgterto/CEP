@@ -408,6 +408,10 @@ const SPC = {
             if (usl !== null && lsl !== null) {
                  result.Pp = (usl - lsl) / (6 * sigmaLT);
                  result.Ppk = Math.min((usl - mu) / (3 * sigmaLT), (mu - lsl) / (3 * sigmaLT));
+             } else if (usl !== null) {
+                 result.Ppk = (usl - mu) / (3 * sigmaLT);
+             } else if (lsl !== null) {
+                 result.Ppk = (mu - lsl) / (3 * sigmaLT);
              }
         }
 
