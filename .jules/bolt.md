@@ -7,3 +7,6 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+## 2026-05-19 - Conditional Mutually Exclusive Loop Logic in V8
+**Learning:** When evaluating sequential maximum and minimum bounds on hot loop iteration (e.g., `computeXbarR` inner loop), unrolling the initialization and converting independent `if` statements to an `else if` for mutually exclusive conditions (a value strictly less than the minimum cannot also be strictly greater than the maximum) provides measurable speedup in V8 by avoiding redundant checks.
+**Action:** Always search for mutually exclusive conditional updates inside hot loops and refactor them with `else if` logic to eliminate wasted CPU cycles, provided the edge cases (like identical bounds at initialization) are safely unrolled.
