@@ -56,14 +56,18 @@ const SPC = {
             mrData = new Array(len);
             mrData[0] = 0;
 
-            sumX = data[0];
+            let prev = data[0];
+            sumX = prev;
+            // Optimization: Caching data[i-1] in 'prev' avoids redundant array bounds checking
+            // and property lookups in the hot loop, providing a minor execution speedup.
             for (let i = 1; i < len; i++) {
                 const val = data[i];
                 sumX += val;
 
-                const r = Math.abs(val - data[i-1]);
+                const r = Math.abs(val - prev);
                 sumR += r;
                 mrData[i] = r;
+                prev = val;
             }
         }
 
