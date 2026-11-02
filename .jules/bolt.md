@@ -7,3 +7,7 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+
+## 2026-05-19 - Safe State Usage in UI Integration
+**Learning:** When passing pre-calculated statistics to SPC functions in user-facing JavaScript files (e.g., `js/app.js` passing standard deviations or means to `computeCapability`), using global state objects (like `App.state.stats.mean`) introduces a high risk of a `TypeError` crashing the application if the state is undefined at that execution point.
+**Action:** Always prefer locally scoped, strongly-bound variables (like `result.stats.mean`) over global state properties when passing parameters to core algorithmic logic to ensure safety.

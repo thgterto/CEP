@@ -93,7 +93,7 @@ const App = {
         App.state.violations = violations;
 
         // 3. Capability
-        const cap = SPC.computeCapability(App.state.data, usl, lsl, result.stats.sigma);
+        const cap = SPC.computeCapability(App.state.data, usl, lsl, result.stats.sigma, result.stats.mean);
 
         // 4. Label Aggregation for Charts
         let chartLabels = null;
