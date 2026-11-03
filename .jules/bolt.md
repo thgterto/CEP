@@ -7,3 +7,6 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+## 2024-05-19 - Manual Loop Unrolling for Initializations
+**Learning:** Avoid manual loop unrolling for basic initializations (e.g., extracting the first iteration out of a loop to avoid a `sum = 0` assignment) in JavaScript unless it allows combining subsequent mutually exclusive logic. V8 and other modern JIT engines natively optimize basic loop initializations.
+**Action:** Unroll loop iterations only when it simplifies mutually exclusive conditional paths within the loop body (e.g., checking `min` vs `max`), yielding measurable performance improvements, rather than doing it blindly for variable assignments.

@@ -103,15 +103,20 @@ const SPC = {
 
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
-            let min = data[start];
-            let max = data[start];
 
-            for (let j = 0; j < n; j++) {
+            // Optimization: Unroll first iteration and use else-if for mutually exclusive min/max checks
+            let sum = data[start];
+            let min = sum;
+            let max = sum;
+
+            for (let j = 1; j < n; j++) {
                 const val = data[start + j];
                 sum += val;
-                if (val < min) min = val;
-                if (val > max) max = val;
+                if (val < min) {
+                    min = val;
+                } else if (val > max) {
+                    max = val;
+                }
             }
 
             const xbar = sum / n;
