@@ -7,3 +7,6 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+## 2024-05-19 - Safe unrolling and branch reduction in hot statistical loops
+**Learning:** When optimizing nested loops for group-based statistical calculations (e.g., `computeXbarR`) where subgroup size is guaranteed `n >= 2`, unrolling the first iteration (assigning `sum`, `min`, `max` to the first element and starting the loop at index 1) and using `else if` for mutually exclusive conditions (like `min`/`max` checks) yields a measurable execution speedup by avoiding redundant assignments and conditional branches.
+**Action:** Always evaluate whether initialization variables inside a nested statistical loop can be safely pre-populated using the first element to save exactly `(number_of_groups * 1)` iterations and skip redundant checks.
