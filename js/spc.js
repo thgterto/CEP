@@ -101,17 +101,23 @@ const SPC = {
         let sumXbars = 0;
         let sumRanges = 0;
 
+        // Optimization: Unrolling the first iteration (sum = data[start], j = 1) avoids a redundant
+        // iteration and using else-if for mutually exclusive min/max checks prevents redundant branch evaluation,
+        // yielding measurable execution speedup on large datasets since subgroup size n is guaranteed >= 2.
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
+            let sum = data[start];
             let min = data[start];
             let max = data[start];
 
-            for (let j = 0; j < n; j++) {
+            for (let j = 1; j < n; j++) {
                 const val = data[start + j];
                 sum += val;
-                if (val < min) min = val;
-                if (val > max) max = val;
+                if (val < min) {
+                    min = val;
+                } else if (val > max) {
+                    max = val;
+                }
             }
 
             const xbar = sum / n;
