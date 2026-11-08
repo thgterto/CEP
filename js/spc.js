@@ -103,12 +103,14 @@ const SPC = {
 
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
-            let min = data[start];
-            let max = data[start];
+            // Optimization: unroll the first iteration to avoid min/max checks with data[start] initialization
+            let val = data[start];
+            let sum = val;
+            let min = val;
+            let max = val;
 
-            for (let j = 0; j < n; j++) {
-                const val = data[start + j];
+            for (let j = 1; j < n; j++) {
+                val = data[start + j];
                 sum += val;
                 if (val < min) min = val;
                 if (val > max) max = val;
@@ -155,15 +157,18 @@ const SPC = {
 
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
+            // Optimization: Loop unrolling for mean calculation
+            let sum = data[start];
 
-            for (let j = 0; j < n; j++) {
+            for (let j = 1; j < n; j++) {
                 sum += data[start + j];
             }
             const mean = sum / n;
 
-            let sumSq = 0;
-            for (let j = 0; j < n; j++) {
+            // Optimization: Loop unrolling for variance calculation
+            let diff0 = data[start] - mean;
+            let sumSq = diff0 * diff0;
+            for (let j = 1; j < n; j++) {
                 const diff = data[start + j] - mean;
                 sumSq += diff * diff;
             }
