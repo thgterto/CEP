@@ -7,3 +7,7 @@
 ## 2026-05-19 - Conditional Lazy Evaluation in SPC
 **Learning:** When attempting to optimize statistical algorithms by hoisting calculations (e.g., pre-calculating the mean before passing it to standard deviation), unconditional hoisting can break the lazy-evaluation logic of optional arguments (like `target` or `sigma`), accidentally introducing an O(N) performance regression for users who provide those values.
 **Action:** Always conditionally calculate intermediate values (e.g., `const actualMean = (target === null || sigma === null) ? SPC.mean(data) : 0;`) when optimizing functions that accept optional overrides.
+
+## 2024-11-08 - Explicit Logic Detailing in Execution Plans for Refactoring
+**Learning:** When formulating execution plans for code modifications (such as refactoring algorithms or loop unrolling), automated code reviewers will reject the plan if it relies on high-level descriptive names (e.g., "unroll the first iteration of the loop"). The plan must strictly describe the exact logic implementation, variable assignments, and loop bounds changes.
+**Action:** When creating `set_plan` steps for code modifications, replace abstract phrases with explicit instructions like "extract the first iteration by initializing `val = data[start]`, assigning it to `sum`, `min`, `max`, and changing the inner loop to start at index `1`".
