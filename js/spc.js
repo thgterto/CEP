@@ -89,7 +89,7 @@ const SPC = {
 
     // Optimization: Replacing array slice, map, and spread with pre-allocated arrays and inline loops for Xbar-R and Xbar-S
     // yields significant speedup (~4.5x faster for Xbar-R, ~3x faster for Xbar-S) by reducing GC allocations.
-    computeXbarR: (data, n = 5) => {
+    computeXbarR:  (data, n = 5) => {
         if (n < 2 || n > 10) return { error: "Tamanho de subgrupo deve ser entre 2 e 10 para X-R. Para subgrupos maiores, utilize X-S." };
 
         const len = data.length;
@@ -103,11 +103,11 @@ const SPC = {
 
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
-            let min = data[start];
-            let max = data[start];
+            let sum = data[start];
+            let min = sum;
+            let max = sum;
 
-            for (let j = 0; j < n; j++) {
+            for (let j = 1; j < n; j++) {
                 const val = data[start + j];
                 sum += val;
                 if (val < min) min = val;
@@ -141,7 +141,7 @@ const SPC = {
         };
     },
 
-    computeXbarS: (data, n = 5) => {
+    computeXbarS:  (data, n = 5) => {
          if (n < 2 || n > 25) return { error: "Tamanho de subgrupo deve ser entre 2 e 25 para X-S." };
 
         const len = data.length;
@@ -155,16 +155,17 @@ const SPC = {
 
         for (let i = 0; i < numGroups; i++) {
             const start = i * n;
-            let sum = 0;
+            let sum = data[start];
 
-            for (let j = 0; j < n; j++) {
+            for (let j = 1; j < n; j++) {
                 sum += data[start + j];
             }
             const mean = sum / n;
 
-            let sumSq = 0;
-            for (let j = 0; j < n; j++) {
-                const diff = data[start + j] - mean;
+            let diff = data[start] - mean;
+            let sumSq = diff * diff;
+            for (let j = 1; j < n; j++) {
+                diff = data[start + j] - mean;
                 sumSq += diff * diff;
             }
             const sigma = Math.sqrt(sumSq / (n - 1));
