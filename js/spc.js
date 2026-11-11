@@ -56,14 +56,17 @@ const SPC = {
             mrData = new Array(len);
             mrData[0] = 0;
 
-            sumX = data[0];
+            let prevVal = data[0];
+            sumX = prevVal;
+            const abs = Math.abs;
             for (let i = 1; i < len; i++) {
                 const val = data[i];
                 sumX += val;
 
-                const r = Math.abs(val - data[i-1]);
+                const r = abs(val - prevVal);
                 sumR += r;
                 mrData[i] = r;
+                prevVal = val;
             }
         }
 
